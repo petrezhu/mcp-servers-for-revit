@@ -1,0 +1,60 @@
+[
+  {
+    "id": "Autodesk.Revit.DB.FilteredElementCollector",
+    "type": "class",
+    "class": "FilteredElementCollector",
+    "namespace": "Autodesk.Revit.DB",
+    "name": "FilteredElementCollector",
+    "signature": "public class FilteredElementCollector : IEnumerable<Element>, IDisposable",
+    "description": "Collects elements from a Revit document and supports category, class, and view-based filtering.",
+    "keywords": ["collect", "query", "elements", "filter", "view", "category"],
+    "related": ["Autodesk.Revit.DB.ElementCategoryFilter", "Autodesk.Revit.DB.ElementClassFilter", "Autodesk.Revit.DB.Wall"],
+    "example": "var walls = new FilteredElementCollector(doc)\n    .OfClass(typeof(Wall))\n    .Cast<Wall>()\n    .ToList();"
+  },
+  {
+    "id": "Autodesk.Revit.DB.Wall",
+    "type": "class",
+    "class": "Wall",
+    "namespace": "Autodesk.Revit.DB",
+    "name": "Wall",
+    "signature": "public class Wall : HostObject",
+    "description": "Represents a wall element in a Revit document.",
+    "keywords": ["wall", "walls", "host", "architecture"],
+    "related": ["Autodesk.Revit.DB.FilteredElementCollector", "BuiltInCategory.OST_Walls"],
+    "example": "var wallTypes = new FilteredElementCollector(doc)\n    .OfClass(typeof(WallType))\n    .Cast<WallType>()\n    .Select(x => x.Name);"
+  },
+  {
+    "id": "Autodesk.Revit.DB.FamilyInstance.Symbol",
+    "type": "property",
+    "class": "FamilyInstance",
+    "namespace": "Autodesk.Revit.DB",
+    "name": "Symbol",
+    "signature": "public FamilySymbol Symbol { get; set; }",
+    "description": "Gets or sets the FamilySymbol that defines the type of the instance.",
+    "keywords": ["family", "type", "symbol", "instance"],
+    "related": ["Autodesk.Revit.DB.FamilySymbol", "Autodesk.Revit.DB.FamilyInstance"],
+    "example": "var symbol = familyInstance.Symbol;\nvar familyName = symbol.Family.Name;"
+  },
+  {
+    "id": "BuiltInParameter.DOOR_WIDTH",
+    "type": "enum_value",
+    "enum": "BuiltInParameter",
+    "name": "DOOR_WIDTH",
+    "signature": "BuiltInParameter.DOOR_WIDTH = -1001301",
+    "description": "Built-in parameter for door width.",
+    "keywords": ["door", "width", "dimension", "parameter"],
+    "related": ["Autodesk.Revit.DB.Parameter", "Autodesk.Revit.DB.FamilyInstance"],
+    "example": "var width = door.get_Parameter(BuiltInParameter.DOOR_WIDTH)?.AsDouble();"
+  },
+  {
+    "id": "BuiltInCategory.OST_Walls",
+    "type": "enum_value",
+    "enum": "BuiltInCategory",
+    "name": "OST_Walls",
+    "signature": "BuiltInCategory.OST_Walls",
+    "description": "Built-in category for wall elements.",
+    "keywords": ["wall", "category", "collector", "filter"],
+    "related": ["Autodesk.Revit.DB.Wall", "Autodesk.Revit.DB.FilteredElementCollector"],
+    "example": "var walls = new FilteredElementCollector(doc)\n    .OfCategory(BuiltInCategory.OST_Walls)\n    .WhereElementIsNotElementType();"
+  }
+]

@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.14.35906.104
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RevitMCPPlugin", "plugin\RevitMCPPlugin.csproj", "{43CD0FD7-DF41-4F64-92BE-A0F78666D86F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A23E71AF-675B-41EE-9BD4-D4F3C8BA080D} = {A23E71AF-675B-41EE-9BD4-D4F3C8BA080D}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RevitMCPCommandSet", "commandset\RevitMCPCommandSet.csproj", "{A23E71AF-675B-41EE-9BD4-D4F3C8BA080D}"
 EndProject
@@ -70,7 +73,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{9A3C0B8D
 		server\src\tools\create_structural_framing_system.ts = server\src\tools\create_structural_framing_system.ts
 		server\src\tools\create_surface_based_element.ts = server\src\tools\create_surface_based_element.ts
 		server\src\tools\delete_element.ts = server\src\tools\delete_element.ts
-		server\src\tools\execute.ts = server\src\tools\execute.ts
+		server\src\tools\exec.ts = server\src\tools\exec.ts
 		server\src\tools\export_room_data.ts = server\src\tools\export_room_data.ts
 		server\src\tools\get_available_family_types.ts = server\src\tools\get_available_family_types.ts
 		server\src\tools\get_current_view_elements.ts = server\src\tools\get_current_view_elements.ts
@@ -84,7 +87,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{9A3C0B8D
 		server\src\tools\say_hello.ts = server\src\tools\say_hello.ts
 		server\src\tools\search.ts = server\src\tools\search.ts
 		server\src\tools\search_modules.ts = server\src\tools\search_modules.ts
-		server\src\tools\send_code_to_revit.ts = server\src\tools\send_code_to_revit.ts
 		server\src\tools\store_project_data.ts = server\src\tools\store_project_data.ts
 		server\src\tools\store_room_data.ts = server\src\tools\store_room_data.ts
 		server\src\tools\tag_all_rooms.ts = server\src\tools\tag_all_rooms.ts

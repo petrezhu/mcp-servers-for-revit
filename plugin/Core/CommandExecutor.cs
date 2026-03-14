@@ -9,13 +9,6 @@ namespace revit_mcp_plugin.Core
 {
     public class CommandExecutor
     {
-        private static readonly Dictionary<string, string> CommandAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["execute"] = "exec",
-            ["send_code_to_revit"] = "exec",
-            ["execute_code"] = "exec"
-        };
-
         private readonly ICommandRegistry _commandRegistry;
         private readonly ILogger _logger;
 
@@ -37,7 +30,7 @@ namespace revit_mcp_plugin.Core
                 // 查找命令
                 // Find command
                 var requestedMethod = request.Method;
-                var resolvedMethod = ResolveMethodAlias(requestedMethod);
+                var resolvedMethod = requestedMethod;
 
                 if (!_commandRegistry.TryGetCommand(resolvedMethod, out var command))
                 {
@@ -45,11 +38,6 @@ namespace revit_mcp_plugin.Core
                     return CreateErrorResponse(request.Id,
                         JsonRPCErrorCodes.MethodNotFound,
                         $"未找到方法: '{requestedMethod}'\nMethod not found: '{requestedMethod}'");
-                }
-
-                if (!string.Equals(requestedMethod, resolvedMethod, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.Info("命令别名重写: {0} -> {1}\nCommand alias rewrite: {0} -> {1}", requestedMethod, resolvedMethod);
                 }
 
                 _logger.Info("执行命令: {0}", resolvedMethod);
@@ -86,18 +74,6 @@ namespace revit_mcp_plugin.Core
                     JsonRPCErrorCodes.InternalError,
                     $"内部错误: {ex.Message}\nInternal error: {ex.Message}");
             }
-        }
-
-        private static string ResolveMethodAlias(string method)
-        {
-            if (string.IsNullOrWhiteSpace(method))
-            {
-                return method;
-            }
-
-            return CommandAliases.TryGetValue(method, out var canonicalMethod)
-                ? canonicalMethod
-                : method;
         }
 
         private string CreateSuccessResponse(string id, object result)

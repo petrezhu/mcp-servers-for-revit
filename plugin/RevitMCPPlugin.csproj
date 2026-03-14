@@ -77,6 +77,18 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\commandset\RevitMCPCommandSet.csproj"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+    </ItemGroup>
+    <Target Name="BuildAndStageCommandSet" BeforeTargets="CopyFiles">
+        <MSBuild Projects="..\commandset\RevitMCPCommandSet.csproj"
+                 Targets="GetCommandSetDeploymentFiles"
+                 Properties="Configuration=$(Configuration);Platform=$(Platform)">
+            <Output TaskParameter="TargetOutputs" ItemName="CommandSetDeploymentFiles" />
+        </MSBuild>
+    </Target>
     <Target Name="CopyFiles" AfterTargets="CoreBuild">
         <ItemGroup>
             <RootItem Include="$(ProjectDir)*.addin"/>
@@ -91,6 +103,8 @@
 
         <Copy SourceFiles="@(RootItem)" DestinationFolder="$(RootDir)"/>
         <Copy SourceFiles="@(AddinItem)" DestinationFolder="$(AddinDir)"/>
+        <Copy SourceFiles="@(CommandSetDeploymentFiles)"
+              DestinationFolder="$(AddinDir)Commands\RevitMCPCommandSet\%(RecursiveDir)"/>
 
         <ItemGroup>
             <AddinFiles Include="$(RootDir)**\*.*"/>

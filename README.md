@@ -124,23 +124,9 @@ Phase 1 now defaults the MCP server to `Code Mode`. In this mode, the AI-facing 
 | Tool | Description |
 | ---- | ----------- |
 | `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `execute` | Execute generated C# through the Revit bridge |
+| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
 
-This makes `search -> execute` the preferred path for dynamic Revit automation.
-
-To re-enable the original 15+ tools during migration, start the server with:
-
-```bash
-REVIT_MCP_TOOLSET=full npx -y mcp-server-for-revit
-```
-
-or
-
-```bash
-REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
-```
-
-Legacy `send_code_to_revit` remains available only in full mode and is forwarded to the plugin's canonical bridge command `exec`. The AI-facing MCP tool name remains `execute`.
+This makes `search -> exec` the preferred path for dynamic Revit inspection and controlled edits.
 
 ## Supported Tools
 
@@ -149,49 +135,22 @@ Legacy `send_code_to_revit` remains available only in full mode and is forwarded
 | Tool | Description |
 | ---- | ----------- |
 | `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `execute` | Execute generated C# through the Revit bridge |
+| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
 
-### Legacy Full Mode
+`exec` defaults to `read_only` for inspection and analysis.
 
-`REVIT_MCP_TOOLSET=full` restores the original tool surface:
-
-- `get_current_view_info`
-- `get_current_view_elements`
-- `get_available_family_types`
-- `get_selected_elements`
-- `get_material_quantities`
-- `ai_element_filter`
-- `analyze_model_statistics`
-- `create_point_based_element`
-- `create_line_based_element`
-- `create_surface_based_element`
-- `create_grid`
-- `create_level`
-- `create_room`
-- `create_dimensions`
-- `create_structural_framing_system`
-- `delete_element`
-- `operate_element`
-- `color_elements`
-- `tag_all_walls`
-- `tag_all_rooms`
-- `export_room_data`
-- `store_project_data`
-- `store_room_data`
-- `query_stored_data`
-- `send_code_to_revit`
-- `say_hello`
+Use `mode: "modify"` only after the user explicitly confirms that the model should be changed.
 
 ## Phase 1 Smoke Test
 
-The recommended end-to-end smoke test is `execute` with a visible dialog:
+The recommended end-to-end smoke test is `exec` with a visible dialog:
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
 return new { message = "Hello Revit" };
 ```
 
-If your client exposes the `mode` argument, use `legacy`. It is now the default execution mode for compatibility.
+If your client exposes the `mode` argument, use `read_only` by default. Switch to `modify` only after explicit user approval for model changes.
 
 Expected outcome:
 
@@ -300,6 +259,8 @@ Open `mcp-servers-for-revit.sln` in Visual Studio. The solution contains both th
 - **Revit 2025-2026**: .NET 8 (`Release R25`, `Release R26`)
 
 Building the solution automatically assembles the complete deployable layout in `plugin/bin/AddIn <year> <config>/` - the command set is copied into the plugin's `Commands/` folder as part of the build.
+
+`RevitMCPPlugin.csproj` now has an explicit project dependency on `RevitMCPCommandSet.csproj`, so building the plugin also builds the command set first and stages its output into the plugin add-in directory automatically.
 
 ## Project Structure
 

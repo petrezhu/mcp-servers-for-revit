@@ -1,4 +1,5 @@
-﻿using Autodesk.Revit.UI;
+﻿using System;
+using Autodesk.Revit.UI;
 using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Base;
 
@@ -32,9 +33,10 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
                 string code = parameters["code"].Value<string>();
                 JArray parametersArray = parameters["parameters"] as JArray;
                 object[] executionParameters = parametersArray?.ToObject<object[]>() ?? Array.Empty<object>();
+                string mode = parameters["mode"]?.Value<string>() ?? "read_only";
 
                 // 设置执行参数
-                _handler.SetExecutionParameters(code, executionParameters);
+                _handler.SetExecutionParameters(code, executionParameters, mode);
 
                 // 触发外部事件并等待完成
                 if (RaiseAndWaitForCompletion(60000)) // 1分钟超时

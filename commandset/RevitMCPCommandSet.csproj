@@ -95,4 +95,10 @@
         <Copy SourceFiles="@(CommandJsonFile)" DestinationFolder="$(RevitAddinsDir)" Condition="$(Configuration.Contains('Debug'))" />
     </Target>
 
+    <Target Name="GetCommandSetDeploymentFiles" Returns="@(_CommandSetDeploymentFiles)">
+        <ItemGroup>
+            <_CommandSetDeploymentFiles Include="$(TargetDir)Commands\RevitMCPCommandSet\**\*.*" />
+        </ItemGroup>
+    </Target>
+
 </Project>

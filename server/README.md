@@ -39,21 +39,7 @@ By default, the server starts in `Code Mode` and only registers the Phase 1 entr
 | Tool | Description |
 | ---- | ----------- |
 | `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `execute` | Execute generated C# through the Revit bridge |
-
-To temporarily restore the legacy tool surface, start the server with either:
-
-```bash
-REVIT_MCP_TOOLSET=full npx -y mcp-server-for-revit
-```
-
-or
-
-```bash
-REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
-```
-
-That enables the original tool set plus the legacy `send_code_to_revit` alias. Both `execute` and `send_code_to_revit` forward to the plugin-side bridge command `exec`.
+| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
 
 ## Supported Tools
 
@@ -62,42 +48,15 @@ That enables the original tool set plus the legacy `send_code_to_revit` alias. B
 | Tool | Description |
 | ---- | ----------- |
 | `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `execute` | Execute generated C# through the Revit bridge |
+| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
 
-### Legacy Full Mode
+`exec` defaults to `read_only` for inspection and analysis.
 
-`REVIT_MCP_TOOLSET=full` restores the original tool surface, including:
-
-- `get_current_view_info`
-- `get_current_view_elements`
-- `get_available_family_types`
-- `get_selected_elements`
-- `get_material_quantities`
-- `ai_element_filter`
-- `analyze_model_statistics`
-- `create_point_based_element`
-- `create_line_based_element`
-- `create_surface_based_element`
-- `create_grid`
-- `create_level`
-- `create_room`
-- `create_dimensions`
-- `create_structural_framing_system`
-- `delete_element`
-- `operate_element`
-- `color_elements`
-- `tag_all_walls`
-- `tag_all_rooms`
-- `export_room_data`
-- `store_project_data`
-- `store_room_data`
-- `query_stored_data`
-- `send_code_to_revit`
-- `say_hello`
+Use `mode: "modify"` only after the user explicitly confirms that the model should be changed.
 
 ## Smoke Test
 
-Use `execute` for the Phase 1 end-to-end bridge check. The code is inserted directly into the generated `Execute(Document document, object[] parameters)` method body, so a minimal smoke payload is:
+Use `exec` for the Phase 1 end-to-end bridge check. The code is inserted directly into the generated `Execute(Document document, object[] parameters)` method body, so a minimal smoke payload is:
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
@@ -107,7 +66,7 @@ return new { message = "Hello Revit" };
 Expected result:
 
 - Revit shows a `Hello Revit` dialog.
-- The MCP tool returns a success payload from the `execute` MCP tool while the plugin bridge executes `exec`.
+- The MCP tool returns a success payload from the `exec` MCP tool.
 
 ## Development
 

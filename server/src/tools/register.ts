@@ -4,8 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const CODE_MODE_TOOL_FILES = new Set([
-  "execute.ts",
-  "execute.js",
+  "exec.ts",
+  "exec.js",
   "search.ts",
   "search.js",
 ]);

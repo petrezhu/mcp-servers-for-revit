@@ -2,14 +2,14 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
 
-export function registerExecuteTool(server: McpServer) {
+export function registerExecTool(server: McpServer) {
   server.tool(
-    "execute",
-    "Execute generated C# code inside Revit through the Code Mode bridge. Accepts method-body snippets, auto-imports common Revit namespaces, and appends `return null;` when no return is provided.",
+    "exec",
+    "Execute generated C# code inside Revit through the Revit bridge. Use `read_only` for inspection and analysis. Use `modify` only when the user has explicitly asked to change the model.",
     {
       code: z.string().min(1).describe("C# method-body code to execute inside Revit. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
       parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
-      mode: z.enum(["read_only", "legacy"]).optional().default("legacy").describe("Execution mode hint for the Revit-side executor. Defaults to legacy for compatibility with current plugin-side behavior."),
+      mode: z.enum(["read_only", "modify"]).optional().default("read_only").describe("Execution mode. Default to `read_only` for queries and analysis. Use `modify` only after the user explicitly confirms model changes."),
     },
     async (args) => {
       const params = {
@@ -31,7 +31,7 @@ export function registerExecuteTool(server: McpServer) {
                 {
                   success: true,
                   forwardedCommand: "exec",
-                  phase: "phase-1-code-mode",
+                  mode: args.mode,
                   result: response,
                 },
                 null,
@@ -45,7 +45,7 @@ export function registerExecuteTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: `Execute failed: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Exec failed: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
           isError: true,

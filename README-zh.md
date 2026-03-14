@@ -126,23 +126,9 @@ Phase 1 默认让 MCP Server 以 `Code Mode` 启动。在该模式下，面向 A
 | 工具 | 说明 |
 | ---- | ---- |
 | `search` | 查询预构建的 Revit API 索引，为 Code Mode 提供参考 |
-| `execute` | 通过 Revit 桥接执行生成的 C# 代码 |
+| `exec` | 通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
 
-这意味着 `search -> execute` 是当前推荐的动态 Revit 自动化路径。
-
-如需在迁移期间重新启用原有 15+ 工具，可这样启动：
-
-```bash
-REVIT_MCP_TOOLSET=full npx -y mcp-server-for-revit
-```
-
-或：
-
-```bash
-REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
-```
-
-兼容旧客户端的 `send_code_to_revit` 只在 full 模式下可见，并会被转发到 plugin 侧的规范桥接命令 `exec`。面向 AI 的 MCP 工具名仍然是 `execute`。
+这意味着 `search -> exec` 是当前推荐的动态 Revit 查询与受控修改路径。
 
 ## 支持的工具
 
@@ -151,49 +137,22 @@ REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
 | 工具 | 说明 |
 | ---- | ---- |
 | `search` | 查询预构建的 Revit API 索引，为 Code Mode 提供参考 |
-| `execute` | 通过 Revit 桥接执行生成的 C# 代码 |
+| `exec` | 通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
 
-### Legacy Full Mode
+`exec` 默认使用 `read_only`，适合查询、检查和分析。
 
-设置 `REVIT_MCP_TOOLSET=full` 后，会恢复原始工具面：
-
-- `get_current_view_info`
-- `get_current_view_elements`
-- `get_available_family_types`
-- `get_selected_elements`
-- `get_material_quantities`
-- `ai_element_filter`
-- `analyze_model_statistics`
-- `create_point_based_element`
-- `create_line_based_element`
-- `create_surface_based_element`
-- `create_grid`
-- `create_level`
-- `create_room`
-- `create_dimensions`
-- `create_structural_framing_system`
-- `delete_element`
-- `operate_element`
-- `color_elements`
-- `tag_all_walls`
-- `tag_all_rooms`
-- `export_room_data`
-- `store_project_data`
-- `store_room_data`
-- `query_stored_data`
-- `send_code_to_revit`
-- `say_hello`
+只有在用户明确确认要修改模型时，才应使用 `mode: "modify"`。
 
 ## Phase 1 冒烟测试
 
-推荐的端到端冒烟测试是通过 `execute` 弹出一个可见对话框：
+推荐的端到端冒烟测试是通过 `exec` 弹出一个可见对话框：
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
 return new { message = "Hello Revit" };
 ```
 
-如果你的客户端暴露了 `mode` 参数，请使用 `legacy`。当前默认执行模式也已经切换为 `legacy`，以兼容现阶段插件行为。
+如果你的客户端暴露了 `mode` 参数，默认应使用 `read_only`。只有在用户明确批准修改模型后，才切换为 `modify`。
 
 预期结果：
 
@@ -302,6 +261,8 @@ Server 会将 TypeScript 编译到 `server/build/`。开发过程中也可以直
 - **Revit 2025-2026**：.NET 8（`Release R25`、`Release R26`）
 
 构建 solution 后，会在 `plugin/bin/AddIn <year> <config>/` 下自动生成完整可部署布局；其中 command set 会自动复制到 plugin 的 `Commands/` 目录中。
+
+`RevitMCPPlugin.csproj` 现在显式依赖 `RevitMCPCommandSet.csproj`，因此直接构建 plugin 时，也会先构建 commandset，并把其输出自动整理到 plugin 的 add-in 目录。
 
 ## 项目结构
 

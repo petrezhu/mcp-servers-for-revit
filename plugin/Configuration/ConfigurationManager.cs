@@ -3,7 +3,6 @@ using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Interfaces;
 using revit_mcp_plugin.Utils;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -11,12 +10,7 @@ namespace revit_mcp_plugin.Configuration
 {
     public class ConfigurationManager
     {
-        private static readonly HashSet<string> DefaultEnabledCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "exec",
-            "execute",
-            "send_code_to_revit"
-        };
+        private static readonly string[] DefaultEnabledCommands = { "exec" };
 
         private readonly ILogger _logger;
         private readonly string _configPath;
@@ -166,7 +160,7 @@ namespace revit_mcp_plugin.Configuration
                     foreach (var command in root["commands"] as JArray ?? new JArray())
                     {
                         string commandName = command["commandName"]?.Value<string>() ?? string.Empty;
-                        if (!DefaultEnabledCommands.Contains(commandName))
+                        if (!DefaultEnabledCommands.Contains(commandName, StringComparer.OrdinalIgnoreCase))
                         {
                             continue;
                         }

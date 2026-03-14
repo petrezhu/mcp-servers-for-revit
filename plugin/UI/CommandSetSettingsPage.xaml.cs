@@ -16,12 +16,7 @@ namespace revit_mcp_plugin.UI
     /// </summary>
     public partial class CommandSetSettingsPage : Page
     {
-        private static readonly HashSet<string> DefaultEnabledCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "exec",
-            "execute",
-            "send_code_to_revit"
-        };
+        private static readonly string[] DefaultEnabledCommands = { "exec" };
 
         private ObservableCollection<CommandSet> commandSets;
         private ObservableCollection<CommandConfig> currentCommands;
@@ -135,7 +130,7 @@ namespace revit_mcp_plugin.UI
                                         Description = command.Description,
                                         // 使用带有版本占位符的路径
                                         AssemblyPath = dllBasePath,
-                                        Enabled = DefaultEnabledCommands.Contains(command.CommandName),
+                                        Enabled = DefaultEnabledCommands.Contains(command.CommandName, StringComparer.OrdinalIgnoreCase),
                                         // 记录所有支持的版本
                                         SupportedRevitVersions = supportedCommandVersions.ToArray()
                                     };

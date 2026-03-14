@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -19,6 +20,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         // 代码执行参数
         private string _generatedCode;
         private object[] _executionParameters;
+        private string _executionMode = "read_only";
 
         // 执行结果信息
         public ExecutionResultInfo ResultInfo { get; private set; }
@@ -28,10 +30,11 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
 
         // 设置要执行的代码和参数
-        public void SetExecutionParameters(string code, object[] parameters = null)
+        public void SetExecutionParameters(string code, object[] parameters = null, string mode = "read_only")
         {
             _generatedCode = code;
             _executionParameters = parameters ?? Array.Empty<object>();
+            _executionMode = NormalizeMode(mode);
             TaskCompleted = false;
             _resetEvent.Reset();
         }
@@ -49,17 +52,30 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
             {
                 if (app?.ActiveUIDocument?.Document == null)
                 {
-                    throw new InvalidOperationException("No active Revit document is available. Open a project before calling execute.");
+                    throw new InvalidOperationException("No active Revit document is available. Open a project before calling exec.");
                 }
 
                 var doc = app.ActiveUIDocument.Document;
                 ResultInfo = new ExecutionResultInfo();
 
+                if (IsReadOnlyMode())
+                {
+                    var result = CompileAndExecuteCode(
+                        code: _generatedCode,
+                        doc: doc,
+                        uiApp: app,
+                        parameters: _executionParameters
+                    );
+
+                    ResultInfo.Success = true;
+                    ResultInfo.Result = JsonConvert.SerializeObject(result);
+                    return;
+                }
+
                 using (var transaction = new Transaction(doc, "执行AI代码"))
                 {
                     transaction.Start();
 
-                    // 动态编译执行代码
                     var result = CompileAndExecuteCode(
                         code: _generatedCode,
                         doc: doc,
@@ -88,6 +104,13 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         private object CompileAndExecuteCode(string code, Document doc, UIApplication uiApp, object[] parameters)
         {
             var preparedCode = PrepareUserCode(code);
+
+            if (IsReadOnlyMode() && ContainsMutationIndicators(preparedCode.Body))
+            {
+                throw new InvalidOperationException(
+                    "read_only mode does not allow transaction or mutation-oriented Revit API calls. Ask the user to confirm model changes and retry with mode='modify'."
+                );
+            }
 
             var defaultUsings = new[]
             {
@@ -252,6 +275,37 @@ namespace AIGeneratedCode
         private static bool ContainsReturnStatement(string code)
         {
             return Regex.IsMatch(code, @"\breturn\b");
+        }
+
+        private bool IsReadOnlyMode()
+        {
+            return string.Equals(_executionMode, "read_only", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeMode(string mode)
+        {
+            return string.Equals(mode, "modify", StringComparison.OrdinalIgnoreCase)
+                ? "modify"
+                : "read_only";
+        }
+
+        private static bool ContainsMutationIndicators(string code)
+        {
+            var mutationPatterns = new[]
+            {
+                @"\bnew\s+Transaction\b",
+                @"\bnew\s+SubTransaction\b",
+                @"\bnew\s+TransactionGroup\b",
+                @"\bTransactionManager\b",
+                @"\.(Commit|RollBack|Assimilate)\s*\(",
+                @"\bElementTransformUtils\b",
+                @"\bdoc\s*\.\s*(Delete|Regenerate)\s*\(",
+                @"\bdocument\s*\.\s*(Delete|Regenerate)\s*\(",
+                @"\bParameter\s*\.\s*Set\s*\(",
+                @"\.\s*Set\s*\("
+            };
+
+            return mutationPatterns.Any(pattern => Regex.IsMatch(code, pattern, RegexOptions.IgnoreCase));
         }
 
         private static string IndentBody(string code)

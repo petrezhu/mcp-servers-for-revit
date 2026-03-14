@@ -3,6 +3,7 @@ using RevitMCPSDK.API.Interfaces;
 using RevitMCPSDK.API.Models.JsonRPC;
 using RevitMCPSDK.Exceptions;
 using System;
+using System.Collections.Generic;
 
 namespace revit_mcp_plugin.Core
 {

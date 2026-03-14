@@ -262,6 +262,8 @@ Building the solution automatically assembles the complete deployable layout in 
 
 `RevitMCPPlugin.csproj` now has an explicit project dependency on `RevitMCPCommandSet.csproj`, so building the plugin also builds the command set first and stages its output into the plugin add-in directory automatically.
 
+For convenience, the command-set deployment layout is also copied into the plugin's standard output directory under `plugin/bin/<Config>/<year>/Commands/RevitMCPCommandSet/`.
+
 ## Project Structure
 
 ```

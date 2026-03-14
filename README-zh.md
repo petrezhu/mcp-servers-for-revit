@@ -264,6 +264,8 @@ Server 会将 TypeScript 编译到 `server/build/`。开发过程中也可以直
 
 `RevitMCPPlugin.csproj` 现在显式依赖 `RevitMCPCommandSet.csproj`，因此直接构建 plugin 时，也会先构建 commandset，并把其输出自动整理到 plugin 的 add-in 目录。
 
+为了便于检查，command set 的部署布局也会同步复制到 plugin 的常规输出目录：`plugin/bin/<Config>/<year>/Commands/RevitMCPCommandSet/`。
+
 ## 项目结构
 
 ```text

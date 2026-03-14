@@ -104,6 +104,8 @@
         <Copy SourceFiles="@(RootItem)" DestinationFolder="$(RootDir)"/>
         <Copy SourceFiles="@(AddinItem)" DestinationFolder="$(AddinDir)"/>
         <Copy SourceFiles="@(CommandSetDeploymentFiles)"
+              DestinationFolder="$(TargetDir)Commands\RevitMCPCommandSet\%(RecursiveDir)"/>
+        <Copy SourceFiles="@(CommandSetDeploymentFiles)"
               DestinationFolder="$(AddinDir)Commands\RevitMCPCommandSet\%(RecursiveDir)"/>
 
         <ItemGroup>

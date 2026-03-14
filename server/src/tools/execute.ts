@@ -5,9 +5,9 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Execute generated C# code inside Revit through the Code Mode bridge.",
+    "Execute generated C# code inside Revit through the Code Mode bridge. Accepts method-body snippets, auto-imports common Revit namespaces, and appends `return null;` when no return is provided.",
     {
-      code: z.string().min(1).describe("C# code to execute inside Revit."),
+      code: z.string().min(1).describe("C# method-body code to execute inside Revit. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
       parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
       mode: z.enum(["read_only", "legacy"]).optional().default("legacy").describe("Execution mode hint for the Revit-side executor. Defaults to legacy for compatibility with current plugin-side behavior."),
     },

@@ -1,5 +1,8 @@
 using System.IO;
 using System.Reflection;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using Autodesk.Revit.UI;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -44,6 +47,11 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         {
             try
             {
+                if (app?.ActiveUIDocument?.Document == null)
+                {
+                    throw new InvalidOperationException("No active Revit document is available. Open a project before calling execute.");
+                }
+
                 var doc = app.ActiveUIDocument.Document;
                 ResultInfo = new ExecutionResultInfo();
 
@@ -55,6 +63,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
                     var result = CompileAndExecuteCode(
                         code: _generatedCode,
                         doc: doc,
+                        uiApp: app,
                         parameters: _executionParameters
                     );
 
@@ -76,27 +85,51 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
             }
         }
 
-        private object CompileAndExecuteCode(string code, Document doc, object[] parameters)
+        private object CompileAndExecuteCode(string code, Document doc, UIApplication uiApp, object[] parameters)
         {
-            // 包装代码以规范入口点
-            var wrappedCode = $@"
-using System;
-using System.Linq;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using System.Collections.Generic;
+            var preparedCode = PrepareUserCode(code);
+
+            var defaultUsings = new[]
+            {
+                "System",
+                "System.Linq",
+                "System.Collections.Generic",
+                "Autodesk.Revit.DB",
+                "Autodesk.Revit.UI"
+            };
+
+            var usingBlock = string.Join(
+                Environment.NewLine,
+                defaultUsings
+                    .Concat(preparedCode.Usings)
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(@namespace => $"using {@namespace};")
+            );
+
+            var methodPrefix = $@"{usingBlock}
 
 namespace AIGeneratedCode
 {{
     public static class CodeExecutor
     {{
-        public static object Execute(Document document, object[] parameters)
+        public static object Execute(Document document, UIApplication uiApp, object[] parameters)
         {{
+            var doc = document;
+            var uidoc = uiApp?.ActiveUIDocument;
+            var app = uiApp;
+            var uiapp = uiApp;
+            var application = document?.Application;
+
             // 用户代码入口
-            {code}
-        }}
-    }}
-}}";
+";
+
+            var methodSuffix = @"
+        }
+    }
+}";
+
+            var wrappedCode = $"{methodPrefix}{preparedCode.Body}{methodSuffix}";
+            var wrapperPrefixLineCount = methodPrefix.Split('\n').Length - 1;
 
             var syntaxTree = CSharpSyntaxTree.ParseText(wrappedCode);
 
@@ -122,9 +155,19 @@ namespace AIGeneratedCode
                 // 处理编译结果
                 if (!result.Success)
                 {
-                    var errors = string.Join("\n", result.Diagnostics
-                        .Where(d => d.Severity == DiagnosticSeverity.Error)
-                        .Select(d => $"Line {d.Location.GetLineSpan().StartLinePosition.Line}: {d.GetMessage()}"));
+                    var errors = string.Join(
+                        "\n",
+                        result.Diagnostics
+                            .Where(d => d.Severity == DiagnosticSeverity.Error)
+                            .Select(d => FormatDiagnostic(d, wrapperPrefixLineCount))
+                    );
+
+                    var compatibilityHints = BuildCompatibilityHints(result.Diagnostics);
+                    if (!string.IsNullOrWhiteSpace(compatibilityHints))
+                    {
+                        errors = $"{errors}\n\nHints:\n{compatibilityHints}";
+                    }
+
                     throw new Exception($"代码编译错误:\n{errors}");
                 }
 
@@ -134,8 +177,136 @@ namespace AIGeneratedCode
                 var executorType = assembly.GetType("AIGeneratedCode.CodeExecutor");
                 var executeMethod = executorType.GetMethod("Execute");
 
-                return executeMethod.Invoke(null, new object[] { doc, parameters });
+                return executeMethod.Invoke(null, new object[] { doc, uiApp, parameters });
             }
+        }
+
+        private PreparedUserCode PrepareUserCode(string code)
+        {
+            var normalizedCode = StripCodeFence(code).Trim();
+            var codeLines = normalizedCode
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+                .ToList();
+
+            var extractedUsings = new List<string>();
+            for (var index = 0; index < codeLines.Count;)
+            {
+                var trimmedLine = codeLines[index].Trim();
+                if (trimmedLine.StartsWith("using ", StringComparison.Ordinal) &&
+                    trimmedLine.EndsWith(";", StringComparison.Ordinal))
+                {
+                    var namespaceName = trimmedLine
+                        .Substring("using ".Length)
+                        .TrimEnd(';')
+                        .Trim();
+                    if (!string.IsNullOrWhiteSpace(namespaceName))
+                    {
+                        extractedUsings.Add(namespaceName);
+                    }
+
+                    codeLines.RemoveAt(index);
+                    continue;
+                }
+
+                index++;
+            }
+
+            var body = string.Join(Environment.NewLine, codeLines).Trim();
+            if (!ContainsReturnStatement(body))
+            {
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    body += Environment.NewLine;
+                }
+
+                body += "return null;";
+            }
+
+            return new PreparedUserCode
+            {
+                Body = IndentBody(body),
+                Usings = extractedUsings
+            };
+        }
+
+        private static string StripCodeFence(string code)
+        {
+            var trimmed = code.Trim();
+            if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                return code;
+            }
+
+            var lines = trimmed.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).ToList();
+            if (lines.Count >= 2 && lines[0].StartsWith("```", StringComparison.Ordinal) &&
+                lines[^1].Trim().Equals("```", StringComparison.Ordinal))
+            {
+                lines.RemoveAt(lines.Count - 1);
+                lines.RemoveAt(0);
+                return string.Join(Environment.NewLine, lines);
+            }
+
+            return code;
+        }
+
+        private static bool ContainsReturnStatement(string code)
+        {
+            return Regex.IsMatch(code, @"\breturn\b");
+        }
+
+        private static string IndentBody(string code)
+        {
+            var lines = code.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            return string.Join(
+                Environment.NewLine,
+                lines.Select(line => string.IsNullOrWhiteSpace(line) ? string.Empty : $"            {line}")
+            );
+        }
+
+        private static string FormatDiagnostic(Diagnostic diagnostic, int wrapperPrefixLineCount)
+        {
+            var lineSpan = diagnostic.Location.GetLineSpan();
+            var rawLine = lineSpan.StartLinePosition.Line + 1;
+            var userLine = rawLine - wrapperPrefixLineCount;
+            var lineLabel = userLine > 0 ? userLine : rawLine;
+            return $"Line {lineLabel}: {diagnostic.GetMessage()}";
+        }
+
+        private static string BuildCompatibilityHints(IEnumerable<Diagnostic> diagnostics)
+        {
+            var hints = new List<string>();
+            var messages = diagnostics
+                .Where(d => d.Severity == DiagnosticSeverity.Error)
+                .Select(d => d.GetMessage())
+                .ToList();
+
+            if (messages.Any(message => message.Contains("Not all code paths return a value", StringComparison.OrdinalIgnoreCase)))
+            {
+                hints.Add("End the snippet with `return null;` or return a serializable value.");
+            }
+
+            if (messages.Any(message => message.Contains("No overload for method 'Show' takes 1 arguments", StringComparison.OrdinalIgnoreCase)))
+            {
+                hints.Add("Use `TaskDialog.Show(\"Title\", \"Message\")` or create a `TaskDialog` instance and call `Show()` with no arguments.");
+            }
+
+            if (messages.Any(message => message.Contains("The name 'doc' does not exist", StringComparison.OrdinalIgnoreCase)))
+            {
+                hints.Add("Use `document` for the active Revit document. A compatibility alias `doc` is also injected by the latest bridge build.");
+            }
+
+            if (messages.Any(message => message.Contains("FilteredElementcollector", StringComparison.OrdinalIgnoreCase)))
+            {
+                hints.Add("The correct type name is `FilteredElementCollector`.");
+            }
+
+            if (messages.Any(message => message.Contains("Unexpected character", StringComparison.OrdinalIgnoreCase) ||
+                                        message.Contains("Invalid token", StringComparison.OrdinalIgnoreCase)))
+            {
+                hints.Add("Submit only the method body. Do not include unmatched braces, partial class declarations, or malformed code fences.");
+            }
+
+            return string.Join("\n", hints.Distinct(StringComparer.Ordinal));
         }
 
         public string GetName()
@@ -155,5 +326,12 @@ namespace AIGeneratedCode
 
         [JsonProperty("errorMessage")]
         public string ErrorMessage { get; set; } = string.Empty;
+    }
+
+    internal class PreparedUserCode
+    {
+        public string Body { get; set; } = string.Empty;
+
+        public IReadOnlyList<string> Usings { get; set; } = Array.Empty<string>();
     }
 }

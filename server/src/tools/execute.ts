@@ -9,7 +9,7 @@ export function registerExecuteTool(server: McpServer) {
     {
       code: z.string().min(1).describe("C# code to execute inside Revit."),
       parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
-      mode: z.enum(["read_only", "legacy"]).optional().default("read_only").describe("Execution mode hint for the Revit-side executor."),
+      mode: z.enum(["read_only", "legacy"]).optional().default("legacy").describe("Execution mode hint for the Revit-side executor. Defaults to legacy for compatibility with current plugin-side behavior."),
     },
     async (args) => {
       const params = {

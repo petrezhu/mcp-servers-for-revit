@@ -4,6 +4,8 @@
 
 **Connect AI assistants to Autodesk Revit via the Model Context Protocol.**
 
+[中文说明](./README-zh.md)
+
 mcp-servers-for-revit enables AI clients like Claude, Cline, and other MCP-compatible tools to read, create, modify, and delete elements in Revit projects. It consists of three components: a TypeScript MCP server that exposes tools to AI, a C# Revit add-in that bridges commands into Revit, and a command set that implements the actual Revit API operations.
 
 > [!NOTE]
@@ -105,6 +107,16 @@ If using a release ZIP, the command set is pre-installed inside the plugin. For 
 3. Copy the built DLLs into that folder
 4. Copy `command.json` (from repo root) into `Commands/RevitMCPCommandSet/`
 
+After building `commandset`, the output directory also contains a staged layout you can copy directly:
+
+```text
+<commandset output>\Commands\RevitMCPCommandSet\
+  command.json
+  <year>\
+    RevitMCPCommandSet.dll
+    ...
+```
+
 ## Tool Modes
 
 Phase 1 now defaults the MCP server to `Code Mode`. In this mode, the AI-facing tool surface is intentionally reduced to:
@@ -178,6 +190,8 @@ The recommended end-to-end smoke test is `execute` with a visible dialog:
 TaskDialog.Show("Revit MCP", "Hello Revit");
 return new { message = "Hello Revit" };
 ```
+
+If your client exposes the `mode` argument, use `legacy`. It is now the default execution mode for compatibility.
 
 Expected outcome:
 

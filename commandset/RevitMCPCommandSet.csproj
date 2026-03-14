@@ -70,12 +70,19 @@
             <PluginAddInRoot>$(ProjectDir)..\plugin\bin\AddIn $(RevitVersion) $(Configuration)\revit_mcp_plugin\</PluginAddInRoot>
             <CommandSetPluginDir>$(PluginAddInRoot)Commands\RevitMCPCommandSet\</CommandSetPluginDir>
             <RevitAddinsDir>$(AppData)\Autodesk\Revit\Addins\$(RevitVersion)\revit_mcp_plugin\Commands\RevitMCPCommandSet\</RevitAddinsDir>
+            <CommandSetStagingDir>$(TargetDir)Commands\RevitMCPCommandSet\</CommandSetStagingDir>
         </PropertyGroup>
 
         <ItemGroup>
             <CommandSetBinaries Include="$(TargetDir)*.dll;$(TargetDir)*.pdb" />
             <CommandJsonFile Include="$(ProjectDir)..\command.json" />
         </ItemGroup>
+
+        <!-- Always: Stage a self-contained command-set layout inside the build output -->
+        <MakeDir Directories="$(CommandSetStagingDir)$(RevitVersion)" />
+        <Copy SourceFiles="@(CommandSetBinaries)" DestinationFolder="$(CommandSetStagingDir)$(RevitVersion)\" />
+        <Copy SourceFiles="@(CommandJsonFile)" DestinationFolder="$(CommandSetStagingDir)" />
+        <Copy SourceFiles="@(CommandJsonFile)" DestinationFolder="$(TargetDir)" />
 
         <!-- Always: Copy to plugin's AddIn output for release packaging -->
         <MakeDir Directories="$(CommandSetPluginDir)$(RevitVersion)" />

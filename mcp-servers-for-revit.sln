@@ -74,6 +74,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{9A3C0B8D
 		server\src\tools\create_surface_based_element.ts = server\src\tools\create_surface_based_element.ts
 		server\src\tools\delete_element.ts = server\src\tools\delete_element.ts
 		server\src\tools\exec.ts = server\src\tools\exec.ts
+		server\src\tools\execute.ts = server\src\tools\execute.ts
 		server\src\tools\export_room_data.ts = server\src\tools\export_room_data.ts
 		server\src\tools\get_available_family_types.ts = server\src\tools\get_available_family_types.ts
 		server\src\tools\get_current_view_elements.ts = server\src\tools\get_current_view_elements.ts

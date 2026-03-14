@@ -1,0 +1,57 @@
+import { z } from "zod";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { withRevitConnection } from "../utils/ConnectionManager.js";
+
+export function registerExecuteTool(server: McpServer) {
+  server.tool(
+    "execute",
+    "Compatibility alias for `exec`. Use `read_only` for inspection and analysis. Use `modify` only when the user has explicitly asked to change the model.",
+    {
+      code: z.string().min(1).describe("C# method-body code to execute inside Revit. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
+      parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
+      mode: z.enum(["read_only", "modify"]).optional().default("read_only").describe("Execution mode. Default to `read_only` for queries and analysis. Use `modify` only after the user explicitly confirms model changes."),
+    },
+    async (args) => {
+      const params = {
+        code: args.code,
+        parameters: args.parameters ?? [],
+        mode: args.mode,
+      };
+
+      try {
+        const response = await withRevitConnection(async (revitClient) => {
+          return await revitClient.sendCommand("exec", params);
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: true,
+                  forwardedTool: "exec",
+                  forwardedCommand: "exec",
+                  mode: args.mode,
+                  result: response,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Execute failed: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+}

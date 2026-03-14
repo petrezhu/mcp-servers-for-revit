@@ -6,6 +6,8 @@ import { fileURLToPath } from "url";
 const CODE_MODE_TOOL_FILES = new Set([
   "exec.ts",
   "exec.js",
+  "execute.ts",
+  "execute.js",
   "search.ts",
   "search.js",
 ]);

@@ -5,15 +5,15 @@ using RevitMCPSDK.API.Base;
 namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
 {
     /// <summary>
-    /// 处理代码执行的命令类
+    /// Compatibility alias that keeps the execute command name available.
     /// </summary>
-    public class ExecuteCodeCommand : ExternalEventCommandBase
+    public class ExecuteCodeCompatibilityCommand : ExternalEventCommandBase
     {
         private ExecuteCodeEventHandler _handler => (ExecuteCodeEventHandler)Handler;
 
-        public override string CommandName => "exec";
+        public override string CommandName => "execute";
 
-        public ExecuteCodeCommand(UIApplication uiApp)
+        public ExecuteCodeCompatibilityCommand(UIApplication uiApp)
             : base(new ExecuteCodeEventHandler(), uiApp)
         {
         }
@@ -22,29 +22,23 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         {
             try
             {
-                // 参数验证
                 if (!parameters.ContainsKey("code"))
                 {
                     throw new ArgumentException("Missing required parameter: 'code'");
                 }
 
-                // 解析代码和参数
                 string code = parameters["code"].Value<string>();
                 JArray parametersArray = parameters["parameters"] as JArray;
                 object[] executionParameters = parametersArray?.ToObject<object[]>() ?? Array.Empty<object>();
 
-                // 设置执行参数
                 _handler.SetExecutionParameters(code, executionParameters);
 
-                // 触发外部事件并等待完成
-                if (RaiseAndWaitForCompletion(60000)) // 1分钟超时
+                if (RaiseAndWaitForCompletion(60000))
                 {
                     return _handler.ResultInfo;
                 }
-                else
-                {
-                    throw new TimeoutException("代码执行超时");
-                }
+
+                throw new TimeoutException("代码执行超时");
             }
             catch (Exception ex)
             {

@@ -114,8 +114,13 @@
       "assemblyPath": "RevitMCPCommandSet.dll"
     },
     {
-      "commandName": "execute",
+      "commandName": "exec",
       "description": "Execute dynamic C# code in Revit with access to the Document and Revit API",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "execute",
+      "description": "Compatibility alias for dynamic C# execution in Revit",
       "assemblyPath": "RevitMCPCommandSet.dll"
     },
     {

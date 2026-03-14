@@ -27,7 +27,7 @@ export function registerSendCodeToRevitTool(server: McpServer) {
 
       try {
         const response = await withRevitConnection(async (revitClient) => {
-          return await revitClient.sendCommand("execute", params);
+          return await revitClient.sendCommand("exec", params);
         });
 
         return {
@@ -36,7 +36,7 @@ export function registerSendCodeToRevitTool(server: McpServer) {
               type: "text",
               text: `Code execution successful via legacy alias.\nResult: ${JSON.stringify(
                 {
-                  forwardedCommand: "execute",
+                  forwardedCommand: "exec",
                   result: response,
                 },
                 null,

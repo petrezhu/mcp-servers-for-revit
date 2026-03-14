@@ -20,7 +20,7 @@ export function registerExecuteTool(server: McpServer) {
 
       try {
         const response = await withRevitConnection(async (revitClient) => {
-          return await revitClient.sendCommand("execute", params);
+          return await revitClient.sendCommand("exec", params);
         });
 
         return {
@@ -30,7 +30,7 @@ export function registerExecuteTool(server: McpServer) {
               text: JSON.stringify(
                 {
                   success: true,
-                  forwardedCommand: "execute",
+                  forwardedCommand: "exec",
                   phase: "phase-1-code-mode",
                   result: response,
                 },

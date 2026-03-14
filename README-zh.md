@@ -142,7 +142,7 @@ REVIT_MCP_TOOLSET=full npx -y mcp-server-for-revit
 REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
 ```
 
-兼容旧客户端的 `send_code_to_revit` 只在 full 模式下可见，并会被转发到新的插件命令名 `execute`。
+兼容旧客户端的 `send_code_to_revit` 只在 full 模式下可见，并会被转发到 plugin 侧的规范桥接命令 `exec`。面向 AI 的 MCP 工具名仍然是 `execute`。
 
 ## 支持的工具
 
@@ -197,7 +197,7 @@ return new { message = "Hello Revit" };
 
 预期结果：
 
-- MCP Server 调用 plugin 端命令 `execute`
+- MCP Server 调用 plugin 侧桥接命令 `exec`
 - Revit 弹出 `Hello Revit` 对话框
 - 工具响应返回成功结果
 

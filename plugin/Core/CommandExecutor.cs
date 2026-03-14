@@ -11,8 +11,9 @@ namespace revit_mcp_plugin.Core
     {
         private static readonly Dictionary<string, string> CommandAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["send_code_to_revit"] = "execute",
-            ["execute_code"] = "execute"
+            ["execute"] = "exec",
+            ["send_code_to_revit"] = "exec",
+            ["execute_code"] = "exec"
         };
 
         private readonly ICommandRegistry _commandRegistry;

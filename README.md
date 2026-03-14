@@ -140,7 +140,7 @@ or
 REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
 ```
 
-Legacy `send_code_to_revit` remains available only in full mode and is forwarded to the new plugin command name `execute`.
+Legacy `send_code_to_revit` remains available only in full mode and is forwarded to the plugin's canonical bridge command `exec`. The AI-facing MCP tool name remains `execute`.
 
 ## Supported Tools
 
@@ -195,7 +195,7 @@ If your client exposes the `mode` argument, use `legacy`. It is now the default 
 
 Expected outcome:
 
-- The MCP server calls the plugin command `execute`.
+- The MCP server calls the plugin bridge command `exec`.
 - Revit displays a `Hello Revit` dialog.
 - The tool response contains a success payload.
 

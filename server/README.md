@@ -53,7 +53,7 @@ or
 REVIT_MCP_ENABLE_LEGACY_TOOLS=true npx -y mcp-server-for-revit
 ```
 
-That enables the original tool set plus the legacy `send_code_to_revit` alias.
+That enables the original tool set plus the legacy `send_code_to_revit` alias. Both `execute` and `send_code_to_revit` forward to the plugin-side bridge command `exec`.
 
 ## Supported Tools
 
@@ -107,7 +107,7 @@ return new { message = "Hello Revit" };
 Expected result:
 
 - Revit shows a `Hello Revit` dialog.
-- The MCP tool returns a success payload from the `execute` command path.
+- The MCP tool returns a success payload from the `execute` MCP tool while the plugin bridge executes `exec`.
 
 ## Development
 

@@ -20,7 +20,27 @@ type ApiIndexEntry = {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const apiIndexPath = path.resolve(__dirname, "../data/api-index.json");
+
+function resolveApiIndexPath(): string {
+  const candidatePaths = [
+    path.resolve(__dirname, "../data/api-index.json"),
+    path.resolve(__dirname, "../../src/data/api-index.json"),
+    path.resolve(process.cwd(), "build/data/api-index.json"),
+    path.resolve(process.cwd(), "src/data/api-index.json"),
+  ];
+
+  const existingPath = candidatePaths.find((candidatePath) =>
+    fs.existsSync(candidatePath)
+  );
+
+  if (!existingPath) {
+    throw new Error(
+      `api-index.json not found. Checked: ${candidatePaths.join(", ")}`
+    );
+  }
+
+  return existingPath;
+}
 
 let cachedIndex: ApiIndexEntry[] | null = null;
 
@@ -29,7 +49,7 @@ function loadApiIndex(): ApiIndexEntry[] {
     return cachedIndex;
   }
 
-  const raw = fs.readFileSync(apiIndexPath, "utf8");
+  const raw = fs.readFileSync(resolveApiIndexPath(), "utf8");
   cachedIndex = JSON.parse(raw) as ApiIndexEntry[];
   return cachedIndex;
 }

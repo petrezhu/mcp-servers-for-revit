@@ -10,7 +10,7 @@
     "scripts":  {
                     "clean":  "rimraf build",
                     "prebuild":  "npm run clean",
-                    "build":  "tsc",
+                    "build":  "tsc && node ./scripts/copy-static-assets.mjs",
                     "prepublishOnly":  "npm run build"
                 },
     "files":  [

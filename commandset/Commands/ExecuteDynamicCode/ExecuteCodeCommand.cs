@@ -11,7 +11,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
     {
         private ExecuteCodeEventHandler _handler => (ExecuteCodeEventHandler)Handler;
 
-        public override string CommandName => "send_code_to_revit";
+        public override string CommandName => "execute";
 
         public ExecuteCodeCommand(UIApplication uiApp)
             : base(new ExecuteCodeEventHandler(), uiApp)

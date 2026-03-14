@@ -8,6 +8,12 @@ namespace revit_mcp_plugin.Core
 {
     public class CommandExecutor
     {
+        private static readonly Dictionary<string, string> CommandAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["send_code_to_revit"] = "execute",
+            ["execute_code"] = "execute"
+        };
+
         private readonly ICommandRegistry _commandRegistry;
         private readonly ILogger _logger;
 
@@ -28,28 +34,36 @@ namespace revit_mcp_plugin.Core
             {
                 // 查找命令
                 // Find command
-                if (!_commandRegistry.TryGetCommand(request.Method, out var command))
+                var requestedMethod = request.Method;
+                var resolvedMethod = ResolveMethodAlias(requestedMethod);
+
+                if (!_commandRegistry.TryGetCommand(resolvedMethod, out var command))
                 {
-                    _logger.Warning("未找到命令: {0}\nCommand not found: {0}", request.Method);
+                    _logger.Warning("未找到命令: {0}\nCommand not found: {0}", requestedMethod);
                     return CreateErrorResponse(request.Id,
                         JsonRPCErrorCodes.MethodNotFound,
-                        $"未找到方法: '{request.Method}'\nMethod not found: '{request.Method}'");
+                        $"未找到方法: '{requestedMethod}'\nMethod not found: '{requestedMethod}'");
                 }
 
-                _logger.Info("执行命令: {0}", request.Method);
+                if (!string.Equals(requestedMethod, resolvedMethod, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.Info("命令别名重写: {0} -> {1}\nCommand alias rewrite: {0} -> {1}", requestedMethod, resolvedMethod);
+                }
+
+                _logger.Info("执行命令: {0}", resolvedMethod);
 
                 // 执行命令
                 // Execute command
                 try
                 {
                     object result = command.Execute(request.GetParamsObject(), request.Id);
-                    _logger.Info("命令 {0} 执行成功\nCommand {0} executed successfully.", request.Method);
+                    _logger.Info("命令 {0} 执行成功\nCommand {0} executed successfully.", resolvedMethod);
 
                     return CreateSuccessResponse(request.Id, result);
                 }
                 catch (CommandExecutionException ex)
                 {
-                    _logger.Error("命令 {0} 执行失败: {1}\nCommand {0} failed to execute: {1}", request.Method, ex.Message);
+                    _logger.Error("命令 {0} 执行失败: {1}\nCommand {0} failed to execute: {1}", resolvedMethod, ex.Message);
                     return CreateErrorResponse(request.Id,
                         ex.ErrorCode,
                         ex.Message,
@@ -57,7 +71,7 @@ namespace revit_mcp_plugin.Core
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error("命令 {0} 执行时发生异常: {1}\nAn exception occurred while executing command {0}: {1}", request.Method, ex.Message);
+                    _logger.Error("命令 {0} 执行时发生异常: {1}\nAn exception occurred while executing command {0}: {1}", resolvedMethod, ex.Message);
                     return CreateErrorResponse(request.Id,
                         JsonRPCErrorCodes.InternalError,
                         ex.Message);
@@ -70,6 +84,18 @@ namespace revit_mcp_plugin.Core
                     JsonRPCErrorCodes.InternalError,
                     $"内部错误: {ex.Message}\nInternal error: {ex.Message}");
             }
+        }
+
+        private static string ResolveMethodAlias(string method)
+        {
+            if (string.IsNullOrWhiteSpace(method))
+            {
+                return method;
+            }
+
+            return CommandAliases.TryGetValue(method, out var canonicalMethod)
+                ? canonicalMethod
+                : method;
         }
 
         private string CreateSuccessResponse(string id, object result)

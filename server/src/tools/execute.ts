@@ -5,11 +5,11 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Execute generated C# code inside the Revit plugin through the existing transport bridge. Phase 1 keeps compatibility by forwarding to the legacy send_code_to_revit command.",
+    "Execute generated C# code inside Revit through the Code Mode bridge.",
     {
       code: z.string().min(1).describe("C# code to execute inside Revit."),
       parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
-      mode: z.enum(["read_only", "legacy"]).optional().default("read_only").describe("Execution mode hint. Current Phase 1 implementation forwards through the legacy command path."),
+      mode: z.enum(["read_only", "legacy"]).optional().default("read_only").describe("Execution mode hint for the Revit-side executor."),
     },
     async (args) => {
       const params = {
@@ -20,7 +20,7 @@ export function registerExecuteTool(server: McpServer) {
 
       try {
         const response = await withRevitConnection(async (revitClient) => {
-          return await revitClient.sendCommand("send_code_to_revit", params);
+          return await revitClient.sendCommand("execute", params);
         });
 
         return {
@@ -30,8 +30,8 @@ export function registerExecuteTool(server: McpServer) {
               text: JSON.stringify(
                 {
                   success: true,
-                  forwardedCommand: "send_code_to_revit",
-                  phase: "phase-1-compatibility",
+                  forwardedCommand: "execute",
+                  phase: "phase-1-code-mode",
                   result: response,
                 },
                 null,

@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerSendCodeToRevitTool(server: McpServer) {
   server.tool(
     "send_code_to_revit",
-    "Send C# code to Revit for execution. The code will be inserted into a template with access to the Revit Document and parameters. Your code should be written to work within the Execute method of the template.",
+    "Legacy alias for execute. Sends C# code to Revit for execution while forwarding to the new execute command name.",
     {
       code: z
         .string()
@@ -27,15 +27,18 @@ export function registerSendCodeToRevitTool(server: McpServer) {
 
       try {
         const response = await withRevitConnection(async (revitClient) => {
-          return await revitClient.sendCommand("send_code_to_revit", params);
+          return await revitClient.sendCommand("execute", params);
         });
 
         return {
           content: [
             {
               type: "text",
-              text: `Code execution successful!\nResult: ${JSON.stringify(
-                response,
+              text: `Code execution successful via legacy alias.\nResult: ${JSON.stringify(
+                {
+                  forwardedCommand: "execute",
+                  result: response,
+                },
                 null,
                 2
               )}`,

@@ -3,6 +3,26 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+const CODE_MODE_TOOL_FILES = new Set([
+  "execute.ts",
+  "execute.js",
+  "search.ts",
+  "search.js",
+]);
+
+function resolveToolsetMode(): "code" | "full" {
+  const toolset = process.env.REVIT_MCP_TOOLSET?.trim().toLowerCase();
+  const enableLegacyTools = /^(1|true|yes|on)$/i.test(
+    process.env.REVIT_MCP_ENABLE_LEGACY_TOOLS ?? ""
+  );
+
+  if (enableLegacyTools || toolset === "full" || toolset === "legacy") {
+    return "full";
+  }
+
+  return "code";
+}
+
 export async function registerTools(server: McpServer) {
   // 获取当前文件的目录路径
   const __filename = fileURLToPath(import.meta.url);
@@ -21,8 +41,16 @@ export async function registerTools(server: McpServer) {
       file !== "register.js"
   );
 
+  const toolsetMode = resolveToolsetMode();
+  const selectedToolFiles =
+    toolsetMode === "full"
+      ? toolFiles
+      : toolFiles.filter((file) => CODE_MODE_TOOL_FILES.has(file));
+
+  console.error(`Tool registration mode: ${toolsetMode}`);
+
   // 动态导入并注册每个工具
-  for (const file of toolFiles) {
+  for (const file of selectedToolFiles) {
     try {
       // 构建导入路径
       const importPath = `./${file.replace(/\.(ts|js)$/, ".js")}`;
@@ -44,5 +72,12 @@ export async function registerTools(server: McpServer) {
     } catch (error) {
       console.error(`注册工具 ${file} 时出错:`, error);
     }
+  }
+
+  if (toolsetMode === "code") {
+    const skippedToolCount = toolFiles.length - selectedToolFiles.length;
+    console.error(
+      `Code Mode active: skipped ${skippedToolCount} legacy tool registrations. Set REVIT_MCP_TOOLSET=full or REVIT_MCP_ENABLE_LEGACY_TOOLS=true to restore them.`
+    );
   }
 }

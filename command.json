@@ -114,7 +114,7 @@
       "assemblyPath": "RevitMCPCommandSet.dll"
     },
     {
-      "commandName": "send_code_to_revit",
+      "commandName": "execute",
       "description": "Execute dynamic C# code in Revit with access to the Document and Revit API",
       "assemblyPath": "RevitMCPCommandSet.dll"
     },

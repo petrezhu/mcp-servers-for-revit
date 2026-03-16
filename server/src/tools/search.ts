@@ -306,7 +306,7 @@ function buildSearchResponse(
     source: "api-index",
     primaryTool: "execute",
     guidance:
-      "Try execute first. Use search only when a Revit API detail is unclear, then continue with execute immediately.",
+      "Do not start with search. First try execute once. Use search only after execute fails or when you are blocked on one specific Revit API detail, then continue with execute immediately.",
     totalMatches: preferredMatches.length,
     resultCount: results.length,
     results,
@@ -320,13 +320,13 @@ function buildSearchResponse(
 export function registerSearchTool(server: McpServer) {
   server.tool(
     "search",
-    "Revit API coding gap-filler for Code Mode. Use only when a specific API detail is unclear, then continue with execute using the returned answer and snippet.",
+    "Revit API coding gap-filler for Code Mode. Do not use this as the first step for normal model queries. First try execute, then use search only to patch one specific missing Revit API detail before retrying execute.",
     {
       query: z
         .string()
         .min(1)
         .describe(
-          "A focused coding question or missing API detail, such as 'wall length internal units mm', 'how to get first wall', or 'door width parameter'."
+          "A focused missing API detail discovered after an execute attempt or during code drafting, such as 'wall length internal units mm', 'how to get first wall', or 'door width parameter'."
         ),
       category: z
         .string()
@@ -341,7 +341,7 @@ export function registerSearchTool(server: McpServer) {
         .max(5)
         .optional()
         .default(3)
-        .describe("Maximum number of compact results to return."),
+        .describe("Maximum number of compact results to return. Keep this small because search is only a follow-up patch step."),
     },
     async (args) => {
       try {

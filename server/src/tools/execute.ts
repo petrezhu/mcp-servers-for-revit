@@ -5,13 +5,13 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Primary Code Mode tool. Execute agent-authored C# inside Revit. Prefer this first for queries and analysis; use search only when a Revit API detail is missing.",
+    "Primary Code Mode tool. Start here for nearly all model queries. First try one read-only C# execution based on your best guess, then use search only if execution fails or a specific Revit API detail is still unclear.",
     {
       code: z
         .string()
         .min(1)
         .describe(
-          "C# method-body code to execute inside Revit. Prefer a complete read-only query snippet that returns a scalar, object, or collection."
+          "C# method-body code to execute inside Revit. Prefer a complete read-only query snippet that returns a scalar, object, or collection. Use your best reasonable Revit API guess instead of calling search first."
         ),
       parameters: z
         .array(z.any())
@@ -52,7 +52,7 @@ export function registerExecuteTool(server: McpServer) {
                   guidance:
                     args.mode === "modify"
                       ? "modify mode should only be used after explicit user approval."
-                      : "execute is the primary Code Mode path for read-only inspection and analysis.",
+                      : "execute is the default first step. If this call fails because of a missing Revit API detail, use one focused search and then retry execute.",
                   result: response,
                 },
                 null,
@@ -66,7 +66,7 @@ export function registerExecuteTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: `Execute failed: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Execute failed: ${error instanceof Error ? error.message : String(error)}. If the failure is due to an unknown Revit API detail, call search once with that specific gap, then retry execute.`,
             },
           ],
           isError: true,

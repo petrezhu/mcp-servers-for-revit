@@ -8,6 +8,8 @@ type ApiIndexEntry = {
   id: string;
   type: string;
   name: string;
+  layer?: string;
+  priority?: number;
   class?: string;
   enum?: string;
   namespace?: string;
@@ -16,6 +18,17 @@ type ApiIndexEntry = {
   keywords?: string[];
   related?: string[];
   example?: string;
+  answer?: string;
+  snippet?: string;
+  pitfalls?: string[];
+  symbols?: string[];
+  questionPatterns?: string[];
+  sourceRefs?: string[];
+};
+
+type ScoredEntry = {
+  entry: ApiIndexEntry;
+  score: number;
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,69 +67,293 @@ function loadApiIndex(): ApiIndexEntry[] {
   return cachedIndex;
 }
 
-function scoreEntry(entry: ApiIndexEntry, queryTerms: string[]): number {
-  const haystacks = [
-    entry.id,
-    entry.name,
+function normalizeText(text: string): string {
+  return text.toLowerCase().trim();
+}
+
+function tokenize(text: string): string[] {
+  return normalizeText(text)
+    .split(/[^a-z0-9_.]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function uniqueValues(values: Array<string | undefined>, limit = 6): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    if (!value || seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    result.push(value);
+
+    if (result.length >= limit) {
+      break;
+    }
+  }
+
+  return result;
+}
+
+function isKnowledgePatch(entry: ApiIndexEntry): boolean {
+  return (
+    entry.type === "knowledge_patch" ||
+    entry.layer === "knowledge_patch" ||
+    (((entry.questionPatterns?.length ?? 0) > 0) &&
+      Boolean(entry.answer || entry.snippet))
+  );
+}
+
+function matchesCategory(entry: ApiIndexEntry, category?: string): boolean {
+  if (!category) {
+    return true;
+  }
+
+  const normalizedCategory = normalizeText(category);
+  const candidates = [
+    entry.type,
+    entry.layer,
     entry.class,
     entry.enum,
     entry.namespace,
-    entry.signature,
-    entry.description,
-    ...(entry.keywords ?? []),
-    ...(entry.related ?? []),
   ]
     .filter(Boolean)
-    .map((value) => String(value).toLowerCase());
+    .map((value) => normalizeText(String(value)));
+
+  return candidates.includes(normalizedCategory);
+}
+
+function scoreFields(
+  fields: Array<string | undefined>,
+  queryTerms: string[],
+  exactScore: number,
+  includesScore: number
+): number {
+  const normalizedFields = fields
+    .filter(Boolean)
+    .map((value) => normalizeText(String(value)));
 
   let score = 0;
+
   for (const term of queryTerms) {
-    for (const text of haystacks) {
-      if (text === term) score += 8;
-      else if (text.includes(term)) score += 3;
+    for (const text of normalizedFields) {
+      if (text === term) {
+        score += exactScore;
+      } else if (text.includes(term)) {
+        score += includesScore;
+      }
     }
   }
 
   return score;
 }
 
+function scoreQuestionPatterns(
+  questionPatterns: string[] | undefined,
+  query: string,
+  queryTerms: string[]
+): number {
+  if (!questionPatterns?.length) {
+    return 0;
+  }
+
+  let score = 0;
+
+  for (const pattern of questionPatterns) {
+    const normalizedPattern = normalizeText(pattern);
+    const patternTerms = tokenize(normalizedPattern);
+    const overlap = patternTerms.filter((term) => queryTerms.includes(term)).length;
+
+    if (normalizedPattern === query) {
+      score += 60;
+      continue;
+    }
+
+    if (normalizedPattern.includes(query) || query.includes(normalizedPattern)) {
+      score += 25;
+    }
+
+    score += overlap * 8;
+  }
+
+  return score;
+}
+
+function scoreEntry(
+  entry: ApiIndexEntry,
+  query: string,
+  queryTerms: string[]
+): number {
+  let score = entry.priority ?? 0;
+
+  score += scoreQuestionPatterns(entry.questionPatterns, query, queryTerms);
+  score += scoreFields([entry.name, entry.class, entry.enum], queryTerms, 10, 4);
+  score += scoreFields([entry.id, entry.namespace, entry.signature], queryTerms, 6, 3);
+  score += scoreFields(
+    [
+      ...uniqueValues(entry.keywords ?? [], 12),
+      ...uniqueValues(entry.symbols ?? [], 12),
+      ...uniqueValues(entry.related ?? [], 12),
+    ],
+    queryTerms,
+    6,
+    3
+  );
+  score += scoreFields(
+    [entry.answer, entry.snippet, entry.description, ...(entry.pitfalls ?? [])],
+    queryTerms,
+    5,
+    2
+  );
+
+  if (isKnowledgePatch(entry)) {
+    score += 20;
+  }
+
+  return score;
+}
+
+function rankEntries(
+  index: ApiIndexEntry[],
+  query: string,
+  category?: string
+): ScoredEntry[] {
+  const normalizedQuery = normalizeText(query);
+  const queryTerms = tokenize(normalizedQuery);
+
+  return index
+    .filter((entry) => matchesCategory(entry, category))
+    .map((entry) => ({
+      entry,
+      score: scoreEntry(entry, normalizedQuery, queryTerms),
+    }))
+    .filter((item) => item.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(isKnowledgePatch(b.entry)) - Number(isKnowledgePatch(a.entry)) ||
+        a.entry.name.localeCompare(b.entry.name)
+    );
+}
+
+function toSearchResult(item: ScoredEntry) {
+  const { entry } = item;
+  const symbols = uniqueValues(
+    entry.symbols ?? [entry.namespace, entry.class, entry.enum, entry.name],
+    6
+  );
+  const related = uniqueValues(entry.related ?? [], 3);
+  const sourceRefs = uniqueValues(entry.sourceRefs ?? [entry.type], 3);
+
+  if (isKnowledgePatch(entry)) {
+    return {
+      id: entry.id,
+      type: "knowledge_patch",
+      name: entry.name,
+      answer:
+        entry.answer ??
+        entry.description ??
+        `Use ${entry.name} from ${entry.namespace ?? "the Revit API"}.`,
+      snippet: entry.snippet ?? entry.example ?? null,
+      pitfalls: uniqueValues(entry.pitfalls ?? [], 3),
+      symbols,
+      related,
+      sourceRefs,
+    };
+  }
+
+  return {
+    id: entry.id,
+    type: "api_metadata_fallback",
+    name: entry.name,
+    answer:
+      entry.description ??
+      `Use ${entry.name} from ${entry.namespace ?? "the Revit API"}.`,
+    snippet: entry.example ?? null,
+    pitfalls: [],
+    symbols,
+    related,
+    signature: entry.signature ?? null,
+    sourceRefs,
+  };
+}
+
+function buildSearchResponse(
+  args: { query: string; category?: string; limit: number },
+  ranked: ScoredEntry[]
+) {
+  const knowledgeMatches = ranked.filter((item) => isKnowledgePatch(item.entry));
+  const metadataMatches = ranked.filter((item) => !isKnowledgePatch(item.entry));
+  const preferredMatches =
+    knowledgeMatches.length > 0 ? knowledgeMatches : metadataMatches;
+  const strategy =
+    knowledgeMatches.length > 0
+      ? "knowledge_patch"
+      : metadataMatches.length > 0
+        ? "api_metadata_fallback"
+        : "no_match";
+  const results = preferredMatches.slice(0, args.limit).map(toSearchResult);
+
+  return {
+    success: true,
+    query: args.query,
+    category: args.category ?? null,
+    mode: "gap-filler",
+    strategy,
+    source: "api-index",
+    primaryTool: "execute",
+    guidance:
+      "Try execute first. Use search only when a Revit API detail is unclear, then continue with execute immediately.",
+    totalMatches: preferredMatches.length,
+    resultCount: results.length,
+    results,
+    message:
+      strategy === "no_match"
+        ? "No matching knowledge patch or API metadata was found for this coding question."
+        : null,
+  };
+}
+
 export function registerSearchTool(server: McpServer) {
   server.tool(
     "search",
-    "Search a prebuilt Revit API index and return type signatures, docs, examples, and related APIs for Code Mode workflows.",
+    "Revit API coding gap-filler for Code Mode. Use only when a specific API detail is unclear, then continue with execute using the returned answer and snippet.",
     {
-      query: z.string().min(1).describe("Natural language or API keyword query, such as 'wall type name' or 'door width parameter'."),
-      category: z.string().optional().describe("Optional result type filter, such as 'class', 'property', or 'enum_value'."),
-      limit: z.number().int().min(1).max(20).optional().default(5).describe("Maximum number of matches to return."),
+      query: z
+        .string()
+        .min(1)
+        .describe(
+          "A focused coding question or missing API detail, such as 'wall length internal units mm', 'how to get first wall', or 'door width parameter'."
+        ),
+      category: z
+        .string()
+        .optional()
+        .describe(
+          "Optional filter for a specific layer or symbol kind, such as 'knowledge_patch', 'class', 'property', or 'enum_value'."
+        ),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .optional()
+        .default(3)
+        .describe("Maximum number of compact results to return."),
     },
     async (args) => {
       try {
         const index = loadApiIndex();
-        const queryTerms = args.query.toLowerCase().split(/\s+/).filter(Boolean);
-        const filtered = index
-          .filter((entry) => !args.category || entry.type === args.category)
-          .map((entry) => ({ entry, score: scoreEntry(entry, queryTerms) }))
-          .filter((item) => item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, args.limit)
-          .map(({ entry, score }) => ({ ...entry, score }));
+        const ranked = rankEntries(index, args.query, args.category);
+        const payload = buildSearchResponse(args, ranked);
 
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  success: true,
-                  query: args.query,
-                  category: args.category ?? null,
-                  source: "mock-api-index",
-                  totalMatches: filtered.length,
-                  matches: filtered,
-                },
-                null,
-                2
-              ),
+              text: JSON.stringify(payload, null, 2),
             },
           ],
         };

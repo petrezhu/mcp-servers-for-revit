@@ -4,12 +4,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const CODE_MODE_TOOL_FILES = new Set([
-  "exec.ts",
-  "exec.js",
   "execute.ts",
   "execute.js",
   "search.ts",
   "search.js",
+]);
+
+const CODE_MODE_TOOL_PRIORITY = new Map([
+  ["execute.ts", 0],
+  ["execute.js", 0],
+  ["search.ts", 1],
+  ["search.js", 1],
 ]);
 
 function resolveToolsetMode(): "code" | "full" {
@@ -47,7 +52,14 @@ export async function registerTools(server: McpServer) {
   const selectedToolFiles =
     toolsetMode === "full"
       ? toolFiles
-      : toolFiles.filter((file) => CODE_MODE_TOOL_FILES.has(file));
+      : toolFiles
+          .filter((file) => CODE_MODE_TOOL_FILES.has(file))
+          .sort((a, b) => {
+            const left = CODE_MODE_TOOL_PRIORITY.get(a) ?? Number.MAX_SAFE_INTEGER;
+            const right =
+              CODE_MODE_TOOL_PRIORITY.get(b) ?? Number.MAX_SAFE_INTEGER;
+            return left - right || a.localeCompare(b);
+          });
 
   console.error(`Tool registration mode: ${toolsetMode}`);
 

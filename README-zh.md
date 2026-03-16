@@ -125,10 +125,10 @@ Phase 1 默认让 MCP Server 以 `Code Mode` 启动。在该模式下，面向 A
 
 | 工具 | 说明 |
 | ---- | ---- |
-| `search` | 查询预构建的 Revit API 索引，为 Code Mode 提供参考 |
-| `exec` | 通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
+| `execute` | Code Mode 主工具，用于通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
+| `search` | Revit API 编码补丁工具，返回紧凑答案、最小片段和 pitfalls |
 
-这意味着 `search -> exec` 是当前推荐的动态 Revit 查询与受控修改路径。
+这意味着大多数任务应优先直接走 `execute`。只有在缺少某个 Revit API 细节时，才调用 `search`，随后立刻回到 `execute`。
 
 ## 支持的工具
 
@@ -136,16 +136,20 @@ Phase 1 默认让 MCP Server 以 `Code Mode` 启动。在该模式下，面向 A
 
 | 工具 | 说明 |
 | ---- | ---- |
-| `search` | 查询预构建的 Revit API 索引，为 Code Mode 提供参考 |
-| `exec` | 通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
+| `execute` | Code Mode 主工具，用于通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
+| `search` | Revit API 编码补丁工具，返回紧凑答案、最小片段和 pitfalls |
 
-`exec` 默认使用 `read_only`，适合查询、检查和分析。
+简单查询的理想调用路径应是 `0 次 search + 1 次 execute`。
+
+中等或较复杂查询通常也应控制在 `1~2 次 search + 1 次 execute`。
+
+`execute` 默认使用 `read_only`，适合查询、检查和分析。
 
 只有在用户明确确认要修改模型时，才应使用 `mode: "modify"`。
 
 ## Phase 1 冒烟测试
 
-推荐的端到端冒烟测试是通过 `exec` 弹出一个可见对话框：
+推荐的端到端冒烟测试是通过 `execute` 弹出一个可见对话框：
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
@@ -158,7 +162,7 @@ return new { message = "Hello Revit" };
 
 - MCP Server 调用 plugin 侧桥接命令 `exec`
 - Revit 弹出 `Hello Revit` 对话框
-- 工具响应返回成功结果
+- `execute` 工具响应返回成功结果
 
 ## 测试
 

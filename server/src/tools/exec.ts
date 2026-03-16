@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerExecTool(server: McpServer) {
   server.tool(
     "exec",
-    "Execute generated C# code inside Revit through the Revit bridge. Use `read_only` for inspection and analysis. Use `modify` only when the user has explicitly asked to change the model.",
+    "Legacy alias for `execute`. Prefer `execute` in Code Mode. Use `read_only` for inspection and analysis, and `modify` only after explicit user approval.",
     {
       code: z.string().min(1).describe("C# method-body code to execute inside Revit. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
       parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),

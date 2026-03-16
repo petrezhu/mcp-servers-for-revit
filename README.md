@@ -123,10 +123,10 @@ Phase 1 now defaults the MCP server to `Code Mode`. In this mode, the AI-facing 
 
 | Tool | Description |
 | ---- | ----------- |
-| `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `search` | Revit API coding gap-filler that returns compact answers, snippets, and pitfalls |
 
-This makes `search -> exec` the preferred path for dynamic Revit inspection and controlled edits.
+This makes `execute` the preferred path for most tasks. Use `search` only when the agent is missing a Revit API detail, then continue with `execute`.
 
 ## Supported Tools
 
@@ -134,16 +134,20 @@ This makes `search -> exec` the preferred path for dynamic Revit inspection and 
 
 | Tool | Description |
 | ---- | ----------- |
-| `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `search` | Revit API coding gap-filler that returns compact answers, snippets, and pitfalls |
 
-`exec` defaults to `read_only` for inspection and analysis.
+Simple queries should ideally be `0 x search + 1 x execute`.
+
+More complex queries should usually finish within `1-2 x search + 1 x execute`.
+
+`execute` defaults to `read_only` for inspection and analysis.
 
 Use `mode: "modify"` only after the user explicitly confirms that the model should be changed.
 
 ## Phase 1 Smoke Test
 
-The recommended end-to-end smoke test is `exec` with a visible dialog:
+The recommended end-to-end smoke test is `execute` with a visible dialog:
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
@@ -156,7 +160,7 @@ Expected outcome:
 
 - The MCP server calls the plugin bridge command `exec`.
 - Revit displays a `Hello Revit` dialog.
-- The tool response contains a success payload.
+- The tool response contains a success payload from `execute`.
 
 ## Testing
 

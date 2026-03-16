@@ -1,60 +1,312 @@
 [
   {
+    "id": "patch.wall-length-locationcurve-mm",
+    "type": "knowledge_patch",
+    "layer": "knowledge_patch",
+    "priority": 10,
+    "name": "wall length from LocationCurve in millimeters",
+    "answer": "For a wall instance, prefer LocationCurve.Curve.Length for geometric length. Revit internal length units are feet. Convert with UnitUtils.ConvertFromInternalUnits(value, UnitTypeId.Millimeters).",
+    "snippet": "var wall = new FilteredElementCollector(doc)\n    .OfClass(typeof(Wall))\n    .Cast<Wall>()\n    .FirstOrDefault();\nvar lengthFt = (wall?.Location as LocationCurve)?.Curve.Length ?? 0;\nvar lengthMm = UnitUtils.ConvertFromInternalUnits(lengthFt, UnitTypeId.Millimeters);\nreturn new { wallId = wall?.Id.IntegerValue, lengthFt, lengthMm };",
+    "pitfalls": [
+      "Revit internal length unit is feet",
+      "Not every element exposes a LocationCurve"
+    ],
+    "symbols": [
+      "Autodesk.Revit.DB.FilteredElementCollector",
+      "Autodesk.Revit.DB.Wall",
+      "Autodesk.Revit.DB.LocationCurve",
+      "Autodesk.Revit.DB.UnitUtils",
+      "Autodesk.Revit.DB.UnitTypeId.Millimeters"
+    ],
+    "related": [
+      "BuiltInParameter.CURVE_ELEM_LENGTH"
+    ],
+    "keywords": [
+      "wall",
+      "length",
+      "feet",
+      "mm",
+      "millimeters",
+      "internal units"
+    ],
+    "questionPatterns": [
+      "wall length",
+      "get wall length",
+      "wall length mm",
+      "first wall length",
+      "wall length internal units mm"
+    ],
+    "sourceRefs": [
+      "manual recipe",
+      "Revit API docs"
+    ]
+  },
+  {
+    "id": "patch.get-first-wall",
+    "type": "knowledge_patch",
+    "layer": "knowledge_patch",
+    "priority": 8,
+    "name": "get the first wall",
+    "answer": "Use FilteredElementCollector(doc).OfClass(typeof(Wall)).Cast<Wall>().FirstOrDefault() to get a wall instance directly.",
+    "snippet": "var wall = new FilteredElementCollector(doc)\n    .OfClass(typeof(Wall))\n    .Cast<Wall>()\n    .FirstOrDefault();\nreturn wall == null\n    ? new { found = false }\n    : new { found = true, id = wall.Id.IntegerValue, name = wall.Name };",
+    "pitfalls": [
+      "FirstOrDefault can return null if the project has no walls"
+    ],
+    "symbols": [
+      "Autodesk.Revit.DB.FilteredElementCollector",
+      "Autodesk.Revit.DB.Wall"
+    ],
+    "related": [
+      "BuiltInCategory.OST_Walls"
+    ],
+    "keywords": [
+      "first",
+      "wall",
+      "collector",
+      "query"
+    ],
+    "questionPatterns": [
+      "how to get first wall",
+      "get first wall",
+      "first wall",
+      "find a wall"
+    ],
+    "sourceRefs": [
+      "manual recipe"
+    ]
+  },
+  {
+    "id": "patch.internal-length-to-mm",
+    "type": "knowledge_patch",
+    "layer": "knowledge_patch",
+    "priority": 7,
+    "name": "convert internal length to millimeters",
+    "answer": "Revit stores length in internal feet. Convert to millimeters with UnitUtils.ConvertFromInternalUnits(value, UnitTypeId.Millimeters).",
+    "snippet": "double valueFt = parameter.AsDouble();\ndouble valueMm = UnitUtils.ConvertFromInternalUnits(valueFt, UnitTypeId.Millimeters);\nreturn new { valueFt, valueMm };",
+    "pitfalls": [
+      "AsDouble returns internal feet for length parameters",
+      "Use ForgeTypeId-based UnitTypeId in Revit 2026"
+    ],
+    "symbols": [
+      "Autodesk.Revit.DB.UnitUtils",
+      "Autodesk.Revit.DB.UnitTypeId.Millimeters",
+      "Autodesk.Revit.DB.Parameter"
+    ],
+    "related": [
+      "Parameter.AsDouble"
+    ],
+    "keywords": [
+      "convert",
+      "internal",
+      "feet",
+      "mm",
+      "millimeters"
+    ],
+    "questionPatterns": [
+      "convert internal length to mm",
+      "internal units mm",
+      "feet to mm",
+      "revit length millimeters"
+    ],
+    "sourceRefs": [
+      "manual recipe",
+      "Revit API docs"
+    ]
+  },
+  {
+    "id": "patch.familyinstance-type-name",
+    "type": "knowledge_patch",
+    "layer": "knowledge_patch",
+    "priority": 6,
+    "name": "family instance type and family name",
+    "answer": "Use FamilyInstance.Symbol to access the type. The type name is symbol.Name and the family name is symbol.Family.Name.",
+    "snippet": "var instance = new FilteredElementCollector(doc)\n    .OfClass(typeof(FamilyInstance))\n    .Cast<FamilyInstance>()\n    .FirstOrDefault();\nvar symbol = instance?.Symbol;\nreturn new\n{\n    instanceId = instance?.Id.IntegerValue,\n    typeName = symbol?.Name,\n    familyName = symbol?.Family?.Name\n};",
+    "pitfalls": [
+      "Symbol can be null if the instance lookup failed"
+    ],
+    "symbols": [
+      "Autodesk.Revit.DB.FamilyInstance",
+      "Autodesk.Revit.DB.FamilySymbol",
+      "Autodesk.Revit.DB.FilteredElementCollector"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.FamilyInstance.Symbol"
+    ],
+    "keywords": [
+      "familyinstance",
+      "type name",
+      "family name",
+      "symbol"
+    ],
+    "questionPatterns": [
+      "familyinstance get type name",
+      "family instance type name",
+      "family name from instance",
+      "symbol family name"
+    ],
+    "sourceRefs": [
+      "manual recipe",
+      "Revit API docs"
+    ]
+  },
+  {
+    "id": "patch.door-width-parameter",
+    "type": "knowledge_patch",
+    "layer": "knowledge_patch",
+    "priority": 6,
+    "name": "door width parameter",
+    "answer": "Use BuiltInParameter.DOOR_WIDTH on the door instance or its symbol. The numeric result is in internal feet, so convert it if you need millimeters.",
+    "snippet": "var door = new FilteredElementCollector(doc)\n    .OfCategory(BuiltInCategory.OST_Doors)\n    .WhereElementIsNotElementType()\n    .Cast<FamilyInstance>()\n    .FirstOrDefault();\nvar widthParam = door?.get_Parameter(BuiltInParameter.DOOR_WIDTH)\n    ?? door?.Symbol?.get_Parameter(BuiltInParameter.DOOR_WIDTH);\nvar widthFt = widthParam?.AsDouble() ?? 0;\nvar widthMm = UnitUtils.ConvertFromInternalUnits(widthFt, UnitTypeId.Millimeters);\nreturn new { doorId = door?.Id.IntegerValue, widthFt, widthMm };",
+    "pitfalls": [
+      "Width may be defined on the type rather than the instance",
+      "Length-like parameter values are returned in internal feet"
+    ],
+    "symbols": [
+      "Autodesk.Revit.DB.BuiltInCategory.OST_Doors",
+      "Autodesk.Revit.DB.BuiltInParameter.DOOR_WIDTH",
+      "Autodesk.Revit.DB.FamilyInstance",
+      "Autodesk.Revit.DB.UnitUtils",
+      "Autodesk.Revit.DB.UnitTypeId.Millimeters"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.Parameter.AsDouble"
+    ],
+    "keywords": [
+      "door",
+      "width",
+      "parameter",
+      "familyinstance"
+    ],
+    "questionPatterns": [
+      "door width parameter",
+      "door width",
+      "get door width",
+      "built in parameter door width"
+    ],
+    "sourceRefs": [
+      "manual recipe",
+      "Revit API docs"
+    ]
+  },
+  {
     "id": "Autodesk.Revit.DB.FilteredElementCollector",
     "type": "class",
+    "layer": "api_metadata",
     "class": "FilteredElementCollector",
     "namespace": "Autodesk.Revit.DB",
     "name": "FilteredElementCollector",
     "signature": "public class FilteredElementCollector : IEnumerable<Element>, IDisposable",
     "description": "Collects elements from a Revit document and supports category, class, and view-based filtering.",
-    "keywords": ["collect", "query", "elements", "filter", "view", "category"],
-    "related": ["Autodesk.Revit.DB.ElementCategoryFilter", "Autodesk.Revit.DB.ElementClassFilter", "Autodesk.Revit.DB.Wall"],
-    "example": "var walls = new FilteredElementCollector(doc)\n    .OfClass(typeof(Wall))\n    .Cast<Wall>()\n    .ToList();"
+    "keywords": [
+      "collect",
+      "query",
+      "elements",
+      "filter",
+      "view",
+      "category"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.ElementCategoryFilter",
+      "Autodesk.Revit.DB.ElementClassFilter",
+      "Autodesk.Revit.DB.Wall"
+    ],
+    "example": "var walls = new FilteredElementCollector(doc)\n    .OfClass(typeof(Wall))\n    .Cast<Wall>()\n    .ToList();",
+    "sourceRefs": [
+      "Revit API docs"
+    ]
   },
   {
     "id": "Autodesk.Revit.DB.Wall",
     "type": "class",
+    "layer": "api_metadata",
     "class": "Wall",
     "namespace": "Autodesk.Revit.DB",
     "name": "Wall",
     "signature": "public class Wall : HostObject",
     "description": "Represents a wall element in a Revit document.",
-    "keywords": ["wall", "walls", "host", "architecture"],
-    "related": ["Autodesk.Revit.DB.FilteredElementCollector", "BuiltInCategory.OST_Walls"],
-    "example": "var wallTypes = new FilteredElementCollector(doc)\n    .OfClass(typeof(WallType))\n    .Cast<WallType>()\n    .Select(x => x.Name);"
+    "keywords": [
+      "wall",
+      "walls",
+      "host",
+      "architecture"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.FilteredElementCollector",
+      "BuiltInCategory.OST_Walls"
+    ],
+    "example": "var wallTypes = new FilteredElementCollector(doc)\n    .OfClass(typeof(WallType))\n    .Cast<WallType>()\n    .Select(x => x.Name);",
+    "sourceRefs": [
+      "Revit API docs"
+    ]
   },
   {
     "id": "Autodesk.Revit.DB.FamilyInstance.Symbol",
     "type": "property",
+    "layer": "api_metadata",
     "class": "FamilyInstance",
     "namespace": "Autodesk.Revit.DB",
     "name": "Symbol",
     "signature": "public FamilySymbol Symbol { get; set; }",
     "description": "Gets or sets the FamilySymbol that defines the type of the instance.",
-    "keywords": ["family", "type", "symbol", "instance"],
-    "related": ["Autodesk.Revit.DB.FamilySymbol", "Autodesk.Revit.DB.FamilyInstance"],
-    "example": "var symbol = familyInstance.Symbol;\nvar familyName = symbol.Family.Name;"
+    "keywords": [
+      "family",
+      "type",
+      "symbol",
+      "instance"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.FamilySymbol",
+      "Autodesk.Revit.DB.FamilyInstance"
+    ],
+    "example": "var symbol = familyInstance.Symbol;\nvar familyName = symbol.Family.Name;",
+    "sourceRefs": [
+      "Revit API docs"
+    ]
   },
   {
     "id": "BuiltInParameter.DOOR_WIDTH",
     "type": "enum_value",
+    "layer": "api_metadata",
     "enum": "BuiltInParameter",
     "name": "DOOR_WIDTH",
     "signature": "BuiltInParameter.DOOR_WIDTH = -1001301",
     "description": "Built-in parameter for door width.",
-    "keywords": ["door", "width", "dimension", "parameter"],
-    "related": ["Autodesk.Revit.DB.Parameter", "Autodesk.Revit.DB.FamilyInstance"],
-    "example": "var width = door.get_Parameter(BuiltInParameter.DOOR_WIDTH)?.AsDouble();"
+    "keywords": [
+      "door",
+      "width",
+      "dimension",
+      "parameter"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.Parameter",
+      "Autodesk.Revit.DB.FamilyInstance"
+    ],
+    "example": "var width = door.get_Parameter(BuiltInParameter.DOOR_WIDTH)?.AsDouble();",
+    "sourceRefs": [
+      "Revit API docs"
+    ]
   },
   {
     "id": "BuiltInCategory.OST_Walls",
     "type": "enum_value",
+    "layer": "api_metadata",
     "enum": "BuiltInCategory",
     "name": "OST_Walls",
     "signature": "BuiltInCategory.OST_Walls",
     "description": "Built-in category for wall elements.",
-    "keywords": ["wall", "category", "collector", "filter"],
-    "related": ["Autodesk.Revit.DB.Wall", "Autodesk.Revit.DB.FilteredElementCollector"],
-    "example": "var walls = new FilteredElementCollector(doc)\n    .OfCategory(BuiltInCategory.OST_Walls)\n    .WhereElementIsNotElementType();"
+    "keywords": [
+      "wall",
+      "category",
+      "collector",
+      "filter"
+    ],
+    "related": [
+      "Autodesk.Revit.DB.Wall",
+      "Autodesk.Revit.DB.FilteredElementCollector"
+    ],
+    "example": "var walls = new FilteredElementCollector(doc)\n    .OfCategory(BuiltInCategory.OST_Walls)\n    .WhereElementIsNotElementType();",
+    "sourceRefs": [
+      "Revit API docs"
+    ]
   }
 ]

@@ -34,12 +34,13 @@ Restart Claude Desktop. When you see the hammer icon, the MCP server is connecte
 
 ## Tool Modes
 
-By default, the server starts in `Code Mode` and only registers the Phase 1 entrypoints:
+By default, the server starts in `Code Mode` and only registers the Phase 1 entrypoints. `execute` is the default path; `search` is a compact API gap-filler when the agent is missing a Revit-specific detail.
+
 
 | Tool | Description |
 | ---- | ----------- |
-| `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `search` | Fill Revit API knowledge gaps with short answers, snippets, and pitfalls for Code Mode |
 
 ## Supported Tools
 
@@ -47,16 +48,20 @@ By default, the server starts in `Code Mode` and only registers the Phase 1 entr
 
 | Tool | Description |
 | ---- | ----------- |
-| `search` | Search the prebuilt Revit API index for Code Mode guidance |
-| `exec` | Execute generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
+| `search` | Fill Revit API knowledge gaps with short answers, snippets, and pitfalls for Code Mode |
 
-`exec` defaults to `read_only` for inspection and analysis.
+Simple queries should ideally be `0 x search + 1 x execute`.
+
+If a Revit API detail is unclear, use `search` once, then immediately continue with `execute`.
+
+`execute` defaults to `read_only` for inspection and analysis.
 
 Use `mode: "modify"` only after the user explicitly confirms that the model should be changed.
 
 ## Smoke Test
 
-Use `exec` for the Phase 1 end-to-end bridge check. The code is inserted directly into the generated `Execute(Document document, object[] parameters)` method body, so a minimal smoke payload is:
+Use `execute` for the Phase 1 end-to-end bridge check. The code is inserted directly into the generated `Execute(Document document, object[] parameters)` method body, so a minimal smoke payload is:
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
@@ -66,7 +71,7 @@ return new { message = "Hello Revit" };
 Expected result:
 
 - Revit shows a `Hello Revit` dialog.
-- The MCP tool returns a success payload from the `exec` MCP tool.
+- The MCP tool returns a success payload from the `execute` MCP tool.
 
 ## Development
 

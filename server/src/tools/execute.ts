@@ -5,11 +5,26 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Compatibility alias for `exec`. Use `read_only` for inspection and analysis. Use `modify` only when the user has explicitly asked to change the model.",
+    "Primary Code Mode tool. Execute agent-authored C# inside Revit. Prefer this first for queries and analysis; use search only when a Revit API detail is missing.",
     {
-      code: z.string().min(1).describe("C# method-body code to execute inside Revit. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
-      parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
-      mode: z.enum(["read_only", "modify"]).optional().default("read_only").describe("Execution mode. Default to `read_only` for queries and analysis. Use `modify` only after the user explicitly confirms model changes."),
+      code: z
+        .string()
+        .min(1)
+        .describe(
+          "C# method-body code to execute inside Revit. Prefer a complete read-only query snippet that returns a scalar, object, or collection."
+        ),
+      parameters: z
+        .array(z.any())
+        .optional()
+        .default([])
+        .describe("Optional parameters passed through to the Revit bridge command."),
+      mode: z
+        .enum(["read_only", "modify"])
+        .optional()
+        .default("read_only")
+        .describe(
+          "Execution mode. Default to `read_only` for safe querying. Use `modify` only after the user explicitly confirms model changes."
+        ),
     },
     async (args) => {
       const params = {
@@ -30,9 +45,14 @@ export function registerExecuteTool(server: McpServer) {
               text: JSON.stringify(
                 {
                   success: true,
-                  forwardedTool: "exec",
-                  forwardedCommand: "exec",
+                  tool: "execute",
+                  bridgeCommand: "exec",
+                  workflow: "execute-first",
                   mode: args.mode,
+                  guidance:
+                    args.mode === "modify"
+                      ? "modify mode should only be used after explicit user approval."
+                      : "execute is the primary Code Mode path for read-only inspection and analysis.",
                   result: response,
                 },
                 null,

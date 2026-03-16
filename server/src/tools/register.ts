@@ -4,6 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const CODE_MODE_TOOL_FILES = new Set([
+  "exec.ts",
+  "exec.js",
   "execute.ts",
   "execute.js",
   "search.ts",
@@ -11,10 +13,12 @@ const CODE_MODE_TOOL_FILES = new Set([
 ]);
 
 const CODE_MODE_TOOL_PRIORITY = new Map([
-  ["execute.ts", 0],
-  ["execute.js", 0],
-  ["search.ts", 1],
-  ["search.js", 1],
+  ["exec.ts", 0],
+  ["exec.js", 0],
+  ["execute.ts", 1],
+  ["execute.js", 1],
+  ["search.ts", 2],
+  ["search.js", 2],
 ]);
 
 function resolveToolsetMode(): "code" | "full" {

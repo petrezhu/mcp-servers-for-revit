@@ -9,6 +9,12 @@ namespace revit_mcp_plugin.Core
 {
     public class CommandExecutor
     {
+        private static readonly Dictionary<string, string> CommandAliases =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["execute"] = "exec"
+            };
+
         private readonly ICommandRegistry _commandRegistry;
         private readonly ILogger _logger;
 
@@ -31,6 +37,11 @@ namespace revit_mcp_plugin.Core
                 // Find command
                 var requestedMethod = request.Method;
                 var resolvedMethod = requestedMethod;
+
+                if (CommandAliases.TryGetValue(requestedMethod, out var aliasedMethod))
+                {
+                    resolvedMethod = aliasedMethod;
+                }
 
                 if (!_commandRegistry.TryGetCommand(resolvedMethod, out var command))
                 {

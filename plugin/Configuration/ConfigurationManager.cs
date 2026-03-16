@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Interfaces;
 using revit_mcp_plugin.Utils;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 

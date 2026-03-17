@@ -16,7 +16,7 @@ namespace revit_mcp_plugin.UI
     /// </summary>
     public partial class CommandSetSettingsPage : Page
     {
-        private static readonly string[] DefaultEnabledCommands = { "exec" };
+        private static readonly string[] DefaultEnabledCommands = { "exec", "execute" };
 
         private ObservableCollection<CommandSet> commandSets;
         private ObservableCollection<CommandConfig> currentCommands;

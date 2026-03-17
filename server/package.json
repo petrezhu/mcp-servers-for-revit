@@ -11,6 +11,8 @@
                     "clean":  "rimraf build",
                     "prebuild":  "npm run clean",
                     "build":  "tsc && node ./scripts/copy-static-assets.mjs",
+                    "test":  "npm run build && node --test tests/*.test.mjs",
+                    "test:local-proxy":  "node ./scripts/test-local-proxy.mjs",
                     "prepublishOnly":  "npm run build"
                 },
     "files":  [

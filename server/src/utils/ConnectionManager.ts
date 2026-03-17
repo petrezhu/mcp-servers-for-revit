@@ -4,6 +4,17 @@ import { RevitClientConnection } from "./SocketClient.js";
 // when multiple requests are made in parallel
 let connectionMutex: Promise<void> = Promise.resolve();
 
+function getRevitConnectionHost(): string {
+  return process.env.REVIT_MCP_HOST?.trim() || "localhost";
+}
+
+function getRevitConnectionPort(): number {
+  const rawPort = process.env.REVIT_MCP_PORT?.trim();
+  const parsedPort = rawPort ? Number(rawPort) : 8080;
+
+  return Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 8080;
+}
+
 /**
  * 连接到Revit客户端并执行操作
  * @param operation 连接成功后要执行的操作函数
@@ -20,21 +31,40 @@ export async function withRevitConnection<T>(
   });
   await previousMutex;
 
-  const revitClient = new RevitClientConnection("localhost", 8080);
+  const revitClient = new RevitClientConnection(
+    getRevitConnectionHost(),
+    getRevitConnectionPort()
+  );
 
   try {
     // 连接到Revit客户端
     if (!revitClient.isConnected) {
       await new Promise<void>((resolve, reject) => {
-        const onConnect = () => {
+        let settled = false;
+
+        const cleanup = () => {
           revitClient.socket.removeListener("connect", onConnect);
           revitClient.socket.removeListener("error", onError);
+          clearTimeout(timeoutId);
+        };
+
+        const onConnect = () => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          cleanup();
           resolve();
         };
 
         const onError = (error: any) => {
-          revitClient.socket.removeListener("connect", onConnect);
-          revitClient.socket.removeListener("error", onError);
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          cleanup();
           reject(new Error("connect to revit client failed"));
         };
 
@@ -43,9 +73,13 @@ export async function withRevitConnection<T>(
 
         revitClient.connect();
 
-        setTimeout(() => {
-          revitClient.socket.removeListener("connect", onConnect);
-          revitClient.socket.removeListener("error", onError);
+        const timeoutId = setTimeout(() => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          cleanup();
           reject(new Error("连接到Revit客户端失败"));
         }, 5000);
       });

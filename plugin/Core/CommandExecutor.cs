@@ -12,7 +12,8 @@ namespace revit_mcp_plugin.Core
         private static readonly Dictionary<string, string> CommandAliases =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["execute"] = "exec"
+                ["execute"] = "exec",
+                ["exec"] = "execute"
             };
 
         private readonly ICommandRegistry _commandRegistry;
@@ -33,19 +34,14 @@ namespace revit_mcp_plugin.Core
         {
             try
             {
-                // 查找命令
-                // Find command
                 var requestedMethod = request.Method;
-                var resolvedMethod = requestedMethod;
-
-                if (CommandAliases.TryGetValue(requestedMethod, out var aliasedMethod))
+                IRevitCommand command;
+                string resolvedMethod;
+                if (!TryResolveCommand(requestedMethod, out resolvedMethod, out command))
                 {
-                    resolvedMethod = aliasedMethod;
-                }
-
-                if (!_commandRegistry.TryGetCommand(resolvedMethod, out var command))
-                {
-                    _logger.Warning("未找到命令: {0}\nCommand not found: {0}", requestedMethod);
+                    string registeredCommands = string.Join(", ", _commandRegistry.GetRegisteredCommands());
+                    _logger.Warning("未找到命令: {0}\nCommand not found: {0}\n已注册命令 / Registered commands: {1}",
+                        requestedMethod, requestedMethod, string.IsNullOrWhiteSpace(registeredCommands) ? "<none>" : registeredCommands);
                     return CreateErrorResponse(request.Id,
                         JsonRPCErrorCodes.MethodNotFound,
                         $"未找到方法: '{requestedMethod}'\nMethod not found: '{requestedMethod}'");
@@ -85,6 +81,38 @@ namespace revit_mcp_plugin.Core
                     JsonRPCErrorCodes.InternalError,
                     $"内部错误: {ex.Message}\nInternal error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 尝试按请求名和兼容别名解析命令，兼容 exec / execute 的不同历史命名。
+        /// </summary>
+        /// <param name="requestedMethod">客户端请求的方法名。</param>
+        /// <param name="resolvedMethod">最终解析到的命令名。</param>
+        /// <param name="command">命令实例。</param>
+        /// <returns>找到命令时返回 true，否则返回 false。</returns>
+        private bool TryResolveCommand(string requestedMethod, out string resolvedMethod, out IRevitCommand command)
+        {
+            resolvedMethod = requestedMethod;
+            command = null;
+
+            if (_commandRegistry.TryGetCommand(requestedMethod, out command))
+            {
+                return true;
+            }
+
+            string aliasedMethod;
+            if (!CommandAliases.TryGetValue(requestedMethod, out aliasedMethod))
+            {
+                return false;
+            }
+
+            if (!_commandRegistry.TryGetCommand(aliasedMethod, out command))
+            {
+                return false;
+            }
+
+            resolvedMethod = aliasedMethod;
+            return true;
         }
 
         private string CreateSuccessResponse(string id, object result)

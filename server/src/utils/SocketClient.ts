@@ -108,9 +108,17 @@ export class RevitClientConnection {
           id: requestId,
         };
 
+        const timeoutId = setTimeout(() => {
+          if (this.responseCallbacks.has(requestId)) {
+            this.responseCallbacks.delete(requestId);
+            reject(new Error(`Command timed out after 2 minutes: ${command}`));
+          }
+        }, 120000); // 2分钟超时
+
         // 存储回调函数
         this.responseCallbacks.set(requestId, (responseData) => {
           try {
+            clearTimeout(timeoutId);
             const response = JSON.parse(responseData);
             if (response.error) {
               reject(
@@ -131,14 +139,6 @@ export class RevitClientConnection {
         // 发送命令
         const commandString = JSON.stringify(commandObj);
         this.socket.write(commandString);
-
-        // 设置超时
-        setTimeout(() => {
-          if (this.responseCallbacks.has(requestId)) {
-            this.responseCallbacks.delete(requestId);
-            reject(new Error(`Command timed out after 2 minutes: ${command}`));
-          }
-        }, 120000); // 2分钟超时
       } catch (error) {
         reject(error);
       }

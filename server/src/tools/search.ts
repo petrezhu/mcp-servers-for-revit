@@ -306,7 +306,7 @@ function buildSearchResponse(
     source: "api-index",
     primaryTool: "execute",
     guidance:
-      "Do not start with search. First try execute once. Use search only after execute fails or when you are blocked on one specific Revit API detail, then continue with execute immediately.",
+      "Do not start with search. For simple tasks like getting the first wall id, current view info, or selected elements, execute must be tried first. Use search only after execute fails or when blocked on one specific Revit API detail, then continue with execute immediately.",
     totalMatches: preferredMatches.length,
     resultCount: results.length,
     results,
@@ -320,13 +320,13 @@ function buildSearchResponse(
 export function registerSearchTool(server: McpServer) {
   server.tool(
     "search",
-    "Revit API coding gap-filler for Code Mode. Do not use this as the first step for normal model queries. First try execute, then use search only to patch one specific missing Revit API detail before retrying execute.",
+    "Revit API coding gap-filler for Code Mode. Never use this as the first step for ordinary model queries. If the task is something simple like finding the first wall, reading parameters, listing selected elements, or inspecting the current view, execute must be attempted first. Search is only for one specific missing API detail after an execute attempt fails.",
     {
       query: z
         .string()
         .min(1)
         .describe(
-          "A focused missing API detail discovered after an execute attempt or during code drafting, such as 'wall length internal units mm', 'how to get first wall', or 'door width parameter'."
+          "A focused missing API detail discovered after an execute attempt fails, such as 'wall length internal units mm' or 'door width parameter'. Do not use this field for the user's whole task request."
         ),
       category: z
         .string()
@@ -341,7 +341,7 @@ export function registerSearchTool(server: McpServer) {
         .max(5)
         .optional()
         .default(3)
-        .describe("Maximum number of compact results to return. Keep this small because search is only a follow-up patch step."),
+        .describe("Maximum number of compact results to return. Keep this small because search is only a follow-up patch step after execute."),
     },
     async (args) => {
       try {

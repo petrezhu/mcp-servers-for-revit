@@ -34,7 +34,7 @@ Restart Claude Desktop. When you see the hammer icon, the MCP server is connecte
 
 ## Tool Modes
 
-By default, the server starts in `Code Mode` and only registers the Phase 1 entrypoints. `execute` is the default path; `search` is a compact API gap-filler when the agent is missing a Revit-specific detail.
+By default, the server starts in `Code Mode` and only registers the Phase 1 entrypoints. `execute` is the default path and should be tried first for almost every normal query; `search` is only a compact API gap-filler when the agent is missing one specific Revit detail after an `execute` attempt.
 
 
 | Tool | Description |
@@ -51,9 +51,11 @@ By default, the server starts in `Code Mode` and only registers the Phase 1 entr
 | `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
 | `search` | Fill Revit API knowledge gaps with short answers, snippets, and pitfalls for Code Mode |
 
-Simple queries should ideally be `0 x search + 1 x execute`.
+Simple queries should be `0 x search + 1 x execute`.
 
-If a Revit API detail is unclear, use `search` once, then immediately continue with `execute`.
+Requests like "get the first wall id", "read selected elements", or "inspect the current view" should go straight to `execute` with no search preflight.
+
+If a Revit API detail is unclear, use `search` once only after an `execute` attempt fails, then immediately continue with `execute`.
 
 `execute` defaults to `read_only` for inspection and analysis.
 

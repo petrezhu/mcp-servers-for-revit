@@ -1,17 +1,18 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { sendCodeExecutionCommand } from "./codeExecution.js";
 
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Primary Code Mode tool. Start here for nearly all model queries. First try one read-only C# execution based on your best guess, then use search only if execution fails or a specific Revit API detail is still unclear.",
+    "Primary Code Mode tool. Start here for nearly all model queries. Always attempt one read-only C# execution before search. For simple requests like 'get the first wall id', 'list selected elements', or 'read current view info', call execute directly without any search step.",
     {
       code: z
         .string()
         .min(1)
         .describe(
-          "C# method-body code to execute inside Revit. Prefer a complete read-only query snippet that returns a scalar, object, or collection. Use your best reasonable Revit API guess instead of calling search first."
+          "C# method-body code to execute inside Revit. Prefer a complete read-only query snippet that returns a scalar, object, or collection. Use your best reasonable Revit API guess instead of calling search first, especially for straightforward element lookup tasks."
         ),
       parameters: z
         .array(z.any())
@@ -35,7 +36,7 @@ export function registerExecuteTool(server: McpServer) {
 
       try {
         const response = await withRevitConnection(async (revitClient) => {
-          return await revitClient.sendCommand("exec", params);
+          return await sendCodeExecutionCommand(revitClient, params);
         });
 
         return {
@@ -52,7 +53,7 @@ export function registerExecuteTool(server: McpServer) {
                   guidance:
                     args.mode === "modify"
                       ? "modify mode should only be used after explicit user approval."
-                      : "execute is the default first step. If this call fails because of a missing Revit API detail, use one focused search and then retry execute.",
+                      : "execute is the mandatory first step for normal queries. Only use search after this fails because of one specific missing Revit API detail, then retry execute immediately.",
                   result: response,
                 },
                 null,

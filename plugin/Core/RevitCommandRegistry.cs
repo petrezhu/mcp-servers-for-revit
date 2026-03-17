@@ -5,7 +5,8 @@ namespace revit_mcp_plugin.Core
 {
     public class RevitCommandRegistry : ICommandRegistry
     {
-        private readonly Dictionary<string, IRevitCommand> _commands = new Dictionary<string, IRevitCommand>();
+        private readonly Dictionary<string, IRevitCommand> _commands =
+            new Dictionary<string, IRevitCommand>(System.StringComparer.OrdinalIgnoreCase);
 
         public void RegisterCommand(IRevitCommand command)
         {

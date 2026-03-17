@@ -53,6 +53,7 @@ namespace revit_mcp_plugin.Configuration
             {
                 _logger.Error("加载配置文件失败: {0}\nFailed to load configuration file: {0}", ex.Message);
                 Config ??= new FrameworkConfig();
+                EnsureDefaultBridgeCommands();
             }
 
             // 记录加载时间

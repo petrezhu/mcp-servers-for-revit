@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { sendCodeExecutionCommand } from "./codeExecution.js";
 
 export function registerExecTool(server: McpServer) {
   server.tool(
@@ -20,7 +21,7 @@ export function registerExecTool(server: McpServer) {
 
       try {
         const response = await withRevitConnection(async (revitClient) => {
-          return await revitClient.sendCommand("exec", params);
+          return await sendCodeExecutionCommand(revitClient, params);
         });
 
         return {

@@ -239,26 +239,9 @@ namespace revit_mcp_plugin.Core
                     );
                 }
 
-                // 查找命令
-                // Search for the command in the registry.
-                if (!_commandRegistry.TryGetCommand(request.Method, out var command))
-                {
-                    return CreateErrorResponse(request.Id, JsonRPCErrorCodes.MethodNotFound,
-                        $"Method '{request.Method}' not found");
-                }
-
-                // 执行命令
-                // Execute command.
-                try
-                {                
-                    object result = command.Execute(request.GetParamsObject(), request.Id);
-
-                    return CreateSuccessResponse(request.Id, result);
-                }
-                catch (Exception ex)
-                {
-                    return CreateErrorResponse(request.Id, JsonRPCErrorCodes.InternalError, ex.Message);
-                }
+                // Delegate command resolution to CommandExecutor so aliases like
+                // execute <-> exec are handled consistently in one place.
+                return _commandExecutor.ExecuteCommand(request);
             }
             catch (JsonException)
             {

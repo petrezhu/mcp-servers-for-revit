@@ -11,7 +11,7 @@ namespace revit_mcp_plugin.Configuration
 {
     public class ConfigurationManager
     {
-        private static readonly string[] DefaultEnabledCommands = { "exec", "execute" };
+        private static readonly string[] DefaultEnabledCommands = { "execute", "exec" };
 
         private readonly ILogger _logger;
         private readonly string _configPath;

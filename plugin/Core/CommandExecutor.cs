@@ -13,7 +13,6 @@ namespace revit_mcp_plugin.Core
         private static readonly Dictionary<string, string> CommandAliases =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["execute"] = "exec",
                 ["exec"] = "execute"
             };
 

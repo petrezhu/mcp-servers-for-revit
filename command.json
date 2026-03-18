@@ -9,7 +9,7 @@
   },
   "commands": [
     {
-      "commandName": "exec",
+      "commandName": "execute",
       "description": "Execute dynamic C# code in Revit with access to the Document and Revit API",
       "assemblyPath": "RevitMCPCommandSet.dll"
     }

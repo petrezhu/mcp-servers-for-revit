@@ -47,7 +47,7 @@ export function registerExecuteTool(server: McpServer) {
                 {
                   success: true,
                   tool: "execute",
-                  bridgeCommand: "exec",
+                  bridgeCommand: "execute",
                   workflow: "execute-first",
                   mode: args.mode,
                   guidance:

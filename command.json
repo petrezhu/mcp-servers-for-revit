@@ -12,6 +12,11 @@
       "commandName": "execute",
       "description": "Execute dynamic C# code in Revit with access to the Document and Revit API",
       "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "lookup_engine_query",
+      "description": "Query Revit runtime API symbols and members from the lookup engine bridge",
+      "assemblyPath": "RevitMCPCommandSet.dll"
     }
   ]
 }

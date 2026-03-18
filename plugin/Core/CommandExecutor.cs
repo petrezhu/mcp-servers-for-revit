@@ -13,7 +13,8 @@ namespace revit_mcp_plugin.Core
         private static readonly Dictionary<string, string> CommandAliases =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["exec"] = "execute"
+                ["exec"] = "execute",
+                ["lookup_query"] = "lookup_engine_query"
             };
 
         private readonly ICommandRegistry _commandRegistry;
@@ -84,7 +85,7 @@ namespace revit_mcp_plugin.Core
         }
 
         /// <summary>
-        /// 尝试按请求名和兼容别名解析命令，兼容 exec / execute 的不同历史命名。
+        /// 尝试按请求名和兼容别名解析命令，兼容 exec/execute 与 lookup_query/lookup_engine_query 的历史命名。
         /// </summary>
         /// <param name="requestedMethod">客户端请求的方法名。</param>
         /// <param name="resolvedMethod">最终解析到的命令名。</param>

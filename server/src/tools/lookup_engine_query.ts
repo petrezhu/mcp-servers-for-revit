@@ -166,6 +166,15 @@ function parseBridgeExecutePayload(response: unknown): unknown {
   return null;
 }
 
+function readStringField(payload: unknown, field: string): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const value = (payload as Record<string, unknown>)[field];
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
 function classifyTransportError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
@@ -208,14 +217,30 @@ async function sendLookupEngineQueryCommand(
 ) {
   try {
     const directResponse = await revitClient.sendCommand(LOOKUP_ENGINE_COMMAND, request);
+    const runtimeSource = readStringField(directResponse, "runtimeSource");
+    const directErrorMessage = readStringField(directResponse, "errorMessage");
+
     return {
-      source: "lookup_engine",
+      source:
+        runtimeSource === "lookup_engine"
+          ? "lookup_engine"
+          : runtimeSource
+            ? "runtime_reflection_fallback"
+            : "lookup_engine",
       bridgeResult: directResponse as unknown,
-      success: true,
+      success: !directErrorMessage,
       payload: directResponse as unknown,
-      error: null as BridgeError | null,
-      errorMessage: null as string | null,
-      retryRecommended: false,
+      error: directErrorMessage
+        ? ({
+            type: "runtime",
+            errorCode: "ERR_LOOKUP_ENGINE_QUERY_FAILED",
+            diagnostics: [],
+            retrySuggested: true,
+            suggestedFix: "Review bridge diagnostics and retry with a narrower query.",
+          } as BridgeError)
+        : (null as BridgeError | null),
+      errorMessage: directErrorMessage,
+      retryRecommended: !!directErrorMessage,
     };
   } catch (error) {
     if (!isMethodNotFoundError(error, LOOKUP_ENGINE_COMMAND)) {

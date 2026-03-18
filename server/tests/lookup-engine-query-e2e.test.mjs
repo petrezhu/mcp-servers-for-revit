@@ -143,6 +143,67 @@ test("lookup_engine_query tool uses lookup engine command when bridge supports i
   }
 });
 
+test("lookup_engine_query surfaces direct bridge fallback diagnostics when engine is unavailable", async () => {
+  const bridgeResult = {
+    query: "Wall",
+    matchedCount: 1,
+    runtimeSource: "revit-runtime-reflection-fallback",
+    errorMessage: "LookupEngine assembly is not loaded.",
+    results: [{ fullName: "Autodesk.Revit.DB.Wall", memberSource: "reflection_fallback" }],
+  };
+
+  const bridge = await startMockRevitBridge({
+    onLookupEngineQuery: (request) =>
+      createJsonRpcResponse(request.id, {
+        result: bridgeResult,
+      }),
+  });
+  const previousHost = process.env.REVIT_MCP_HOST;
+  const previousPort = process.env.REVIT_MCP_PORT;
+  const server = new FakeServer();
+
+  process.env.REVIT_MCP_HOST = bridge.host;
+  process.env.REVIT_MCP_PORT = String(bridge.port);
+
+  try {
+    registerLookupEngineQueryTool(server);
+    const tool = server.tools.find((item) => item.name === "lookup_engine_query");
+    assert.ok(tool);
+
+    const response = await tool.handler({
+      query: "Wall",
+      limit: 3,
+      includeMembers: true,
+    });
+    assert.equal(response.isError, undefined);
+
+    const payload = JSON.parse(response.content[0].text);
+    assert.equal(payload.success, false);
+    assert.equal(payload.source, "runtime_reflection_fallback");
+    assert.equal(payload.errorMessage, bridgeResult.errorMessage);
+    assert.equal(payload.error?.errorCode, "ERR_LOOKUP_ENGINE_QUERY_FAILED");
+    assert.deepEqual(payload.result, bridgeResult);
+    assert.deepEqual(
+      bridge.requests.map((request) => request.method),
+      ["lookup_engine_query"]
+    );
+  } finally {
+    if (previousHost === undefined) {
+      delete process.env.REVIT_MCP_HOST;
+    } else {
+      process.env.REVIT_MCP_HOST = previousHost;
+    }
+
+    if (previousPort === undefined) {
+      delete process.env.REVIT_MCP_PORT;
+    } else {
+      process.env.REVIT_MCP_PORT = previousPort;
+    }
+
+    await bridge.close();
+  }
+});
+
 test("lookup_engine_query tool falls back to execute bridge path when lookup engine command is missing", async () => {
   const fallbackLookupResult = {
     query: "ElementId",

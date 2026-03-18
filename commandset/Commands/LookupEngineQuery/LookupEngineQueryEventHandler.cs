@@ -44,6 +44,7 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
             try
             {
                 string normalized = _query.Trim().ToLowerInvariant();
+                var queryTokens = TokenizeQuery(normalized);
 
                 var dbAssembly = typeof(Element).Assembly;
                 var uiAssembly = typeof(UIApplication).Assembly;
@@ -61,13 +62,27 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
                         Type = type,
                         FullName = type.FullName ?? type.Name,
                         Name = type.Name,
-                        NamespaceName = type.Namespace ?? string.Empty
+                        NamespaceName = type.Namespace ?? string.Empty,
+                        FullNameLower = (type.FullName ?? type.Name).ToLowerInvariant(),
+                        NameLower = type.Name.ToLowerInvariant()
                     })
-                    .Where(item =>
-                        string.IsNullOrWhiteSpace(normalized) ||
-                        item.FullName.ToLowerInvariant().Contains(normalized) ||
-                        item.Name.ToLowerInvariant().Contains(normalized))
-                    .OrderBy(item => item.FullName.Length)
+                    .Select(item => new
+                    {
+                        item.Type,
+                        item.FullName,
+                        item.Name,
+                        item.NamespaceName,
+                        PhraseMatched =
+                            string.IsNullOrWhiteSpace(normalized) ||
+                            item.FullNameLower.Contains(normalized) ||
+                            item.NameLower.Contains(normalized),
+                        TokenMatchCount = queryTokens.Count(token =>
+                            item.FullNameLower.Contains(token) || item.NameLower.Contains(token))
+                    })
+                    .Where(item => item.PhraseMatched || item.TokenMatchCount > 0)
+                    .OrderByDescending(item => item.PhraseMatched)
+                    .ThenByDescending(item => item.TokenMatchCount)
+                    .ThenBy(item => item.FullName.Length)
                     .ThenBy(item => item.FullName, StringComparer.Ordinal)
                     .Take(_limit)
                     .ToList();
@@ -192,6 +207,21 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
                 .Select(member => $"{member.MemberType}:{member.Name}")
                 .Distinct(StringComparer.Ordinal)
                 .Take(maxMembers)
+                .ToList();
+        }
+
+        private static List<string> TokenizeQuery(string normalizedQuery)
+        {
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
+            {
+                return new List<string>();
+            }
+
+            return normalizedQuery
+                .Split(new[] { ' ', '\t', '\r', '\n', ',', ';', '|', '/', '\\', '-', '_', '+', '.' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(token => token.Trim())
+                .Where(token => token.Length >= 2)
+                .Distinct(StringComparer.Ordinal)
                 .ToList();
         }
 

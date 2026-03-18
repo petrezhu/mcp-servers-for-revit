@@ -25,8 +25,8 @@ test("execute tool guidance keeps execute as the first step", async () => {
   assert.match(executeTool.description, /always attempt one read-only c# execution before search/i);
   assert.match(executeTool.schema.code.description, /filling in the body of a pre-wrapped C# method/i);
   assert.match(executeTool.schema.code.description, /public static object Execute\(Document document, UIApplication uiApp, object\[] parameters\)/i);
-  assert.match(executeTool.schema.code.description, /var doc = document;/i);
-  assert.match(executeTool.schema.code.description, /do not redeclare doc\/uidoc\/app\/uiapp\/application/i);
+  assert.match(executeTool.schema.code.description, /\/\/ document: Autodesk\.Revit\.DB\.Document/i);
+  assert.match(executeTool.schema.code.description, /No local aliases are predeclared for you/i);
 });
 
 test("search tool payload tells the agent to try execute first", async () => {

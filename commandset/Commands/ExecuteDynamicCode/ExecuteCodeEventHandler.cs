@@ -137,11 +137,15 @@ namespace AIGeneratedCode
     {{
         public static object Execute(Document document, UIApplication uiApp, object[] parameters)
         {{
-            var doc = document;
-            var uidoc = uiApp?.ActiveUIDocument;
-            var app = uiApp;
-            var uiapp = uiApp;
-            var application = document?.Application;
+            // document: Autodesk.Revit.DB.Document
+            // uiApp: Autodesk.Revit.UI.UIApplication
+            // parameters: object[]
+            // You may create local aliases such as:
+            // var doc = document;
+            // var uidoc = uiApp?.ActiveUIDocument;
+            // var app = uiApp;
+            // var uiapp = uiApp;
+            // var application = document?.Application;
 
             // 用户代码入口
 ";
@@ -260,70 +264,27 @@ namespace AIGeneratedCode
                 return code;
             }
 
-            var lines = trimmed.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).ToList();
-            if (lines.Count >= 2 && lines[0].StartsWith("```", StringComparison.Ordinal) &&
-                lines[^1].Trim().Equals("```", StringComparison.Ordinal))
-            {
-                lines.RemoveAt(lines.Count - 1);
-                lines.RemoveAt(0);
-                return string.Join(Environment.NewLine, lines);
-            }
-
-            return code;
+            var withoutOpeningFence = Regex.Replace(trimmed, "^```[a-zA-Z0-9_-]*\\s*", string.Empty);
+            var withoutClosingFence = Regex.Replace(withoutOpeningFence, "\\s*```$", string.Empty);
+            return withoutClosingFence.Trim();
         }
 
-        private static bool ContainsReturnStatement(string code)
+        private static bool ContainsReturnStatement(string body)
         {
-            return Regex.IsMatch(code, @"\breturn\b");
+            return Regex.IsMatch(body, @"\breturn\b");
         }
 
-        private bool IsReadOnlyMode()
+        private static string IndentBody(string body)
         {
-            return string.Equals(_executionMode, "read_only", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string NormalizeMode(string mode)
-        {
-            return string.Equals(mode, "modify", StringComparison.OrdinalIgnoreCase)
-                ? "modify"
-                : "read_only";
-        }
-
-        private static bool ContainsMutationIndicators(string code)
-        {
-            var mutationPatterns = new[]
-            {
-                @"\bnew\s+Transaction\b",
-                @"\bnew\s+SubTransaction\b",
-                @"\bnew\s+TransactionGroup\b",
-                @"\bTransactionManager\b",
-                @"\.(Commit|RollBack|Assimilate)\s*\(",
-                @"\bElementTransformUtils\b",
-                @"\bdoc\s*\.\s*(Delete|Regenerate)\s*\(",
-                @"\bdocument\s*\.\s*(Delete|Regenerate)\s*\(",
-                @"\bParameter\s*\.\s*Set\s*\(",
-                @"\.\s*Set\s*\("
-            };
-
-            return mutationPatterns.Any(pattern => Regex.IsMatch(code, pattern, RegexOptions.IgnoreCase));
-        }
-
-        private static string IndentBody(string code)
-        {
-            var lines = code.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            return string.Join(
-                Environment.NewLine,
-                lines.Select(line => string.IsNullOrWhiteSpace(line) ? string.Empty : $"            {line}")
-            );
+            var lines = body.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            return string.Join(Environment.NewLine, lines.Select(line => $"            {line}"));
         }
 
         private static string FormatDiagnostic(Diagnostic diagnostic, int wrapperPrefixLineCount)
         {
             var lineSpan = diagnostic.Location.GetLineSpan();
-            var rawLine = lineSpan.StartLinePosition.Line + 1;
-            var userLine = rawLine - wrapperPrefixLineCount;
-            var lineLabel = userLine > 0 ? userLine : rawLine;
-            return $"Line {lineLabel}: {diagnostic.GetMessage()}";
+            var originalLine = Math.Max(1, lineSpan.StartLinePosition.Line - wrapperPrefixLineCount + 1);
+            return $"Line {originalLine}: {diagnostic.GetMessage()}";
         }
 
         private static string BuildCompatibilityHints(IEnumerable<Diagnostic> diagnostics)
@@ -334,58 +295,72 @@ namespace AIGeneratedCode
                 .Select(d => d.GetMessage())
                 .ToList();
 
-            if (messages.Any(message => message.Contains("Not all code paths return a value", StringComparison.OrdinalIgnoreCase)))
+            if (messages.Any(message => message.IndexOf("Transaction", StringComparison.OrdinalIgnoreCase) >= 0))
             {
-                hints.Add("End the snippet with `return null;` or return a serializable value.");
+                hints.Add("Use mode='modify' for code that creates transactions or changes the model.");
             }
 
-            if (messages.Any(message => message.Contains("No overload for method 'Show' takes 1 arguments", StringComparison.OrdinalIgnoreCase)))
+            if (messages.Any(message => message.IndexOf("doc", StringComparison.OrdinalIgnoreCase) >= 0))
             {
-                hints.Add("Use `TaskDialog.Show(\"Title\", \"Message\")` or create a `TaskDialog` instance and call `Show()` with no arguments.");
-            }
-
-            if (messages.Any(message => message.Contains("The name 'doc' does not exist", StringComparison.OrdinalIgnoreCase)))
-            {
-                hints.Add("Use `document` for the active Revit document. A compatibility alias `doc` is also injected by the latest bridge build.");
-            }
-
-            if (messages.Any(message => message.Contains("FilteredElementcollector", StringComparison.OrdinalIgnoreCase)))
-            {
-                hints.Add("The correct type name is `FilteredElementCollector`.");
-            }
-
-            if (messages.Any(message => message.Contains("Unexpected character", StringComparison.OrdinalIgnoreCase) ||
-                                        message.Contains("Invalid token", StringComparison.OrdinalIgnoreCase)))
-            {
-                hints.Add("Submit only the method body. Do not include unmatched braces, partial class declarations, or malformed code fences.");
+                hints.Add("Use the Execute method parameters directly, for example `document` and `uiApp`, or define your own local aliases.");
             }
 
             return string.Join("\n", hints.Distinct(StringComparer.Ordinal));
         }
 
+        private bool IsReadOnlyMode()
+        {
+            return string.Equals(_executionMode, "read_only", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeMode(string mode)
+        {
+            return string.Equals(mode, "modify", StringComparison.OrdinalIgnoreCase) ? "modify" : "read_only";
+        }
+
+        private static bool ContainsMutationIndicators(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return false;
+            }
+
+            string[] blockedTokens =
+            {
+                "new Transaction",
+                "Transaction(",
+                ".Start()",
+                ".Commit()",
+                ".Delete(",
+                ".Create.",
+                ".Set(",
+                "Parameter.Set(",
+                "ElementTransformUtils.",
+                "FamilyInstance.New",
+                "Wall.Create(",
+                "Floor.Create(",
+                "Document.Create"
+            };
+
+            return blockedTokens.Any(token => code.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
         public string GetName()
         {
-            return "执行AI代码";
+            return "Execute Code Event Handler";
+        }
+
+        private sealed class PreparedUserCode
+        {
+            public string Body { get; set; }
+            public List<string> Usings { get; set; }
         }
     }
 
-    // 执行结果数据结构
     public class ExecutionResultInfo
     {
-        [JsonProperty("success")]
         public bool Success { get; set; }
-
-        [JsonProperty("result")]
         public string Result { get; set; }
-
-        [JsonProperty("errorMessage")]
-        public string ErrorMessage { get; set; } = string.Empty;
-    }
-
-    internal class PreparedUserCode
-    {
-        public string Body { get; set; } = string.Empty;
-
-        public IReadOnlyList<string> Usings { get; set; } = Array.Empty<string>();
+        public string ErrorMessage { get; set; }
     }
 }

@@ -135,7 +135,7 @@ function classifyTransportError(error: unknown) {
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Primary Code Mode tool. Start here for nearly all model queries. Always attempt one read-only C# execution before search. For simple requests like 'get the first wall id', 'list selected elements', or 'read current view info', call execute directly without any search step.",
+    "Primary Code Mode execution tool for model/element tasks. Use execute-first for project data queries like 'get first wall id', selected elements, or current view info. For runtime API/member discovery tasks (e.g., checking whether ElementId has Value or IntegerValue), use lookup_engine_query first as a parallel path.",
     {
       code: z.string().min(1).describe(EXECUTION_WRAPPER_GUIDANCE),
       parameters: z
@@ -181,7 +181,7 @@ export function registerExecuteTool(server: McpServer) {
                   guidance:
                     args.mode === "modify"
                       ? "modify mode should only be used after explicit user approval."
-                      : "execute is the mandatory first step for normal queries. Only use search after this fails because of one specific missing Revit API detail, then retry execute immediately.",
+                      : "For model/element queries, execute-first is preferred. For API/member discovery queries, use lookup_engine_query first as a parallel path. Use search only when one specific API detail remains unclear, then retry execute once.",
                   error: signals.error,
                   errorMessage: signals.errorMessage,
                   result: response,

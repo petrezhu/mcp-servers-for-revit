@@ -10,6 +10,8 @@ const CODE_MODE_TOOL_FILES = new Set([
   "execute.js",
   "get_runtime_context.ts",
   "get_runtime_context.js",
+  "lookup_engine_query.ts",
+  "lookup_engine_query.js",
   "search.ts",
   "search.js",
 ]);
@@ -19,10 +21,12 @@ const CODE_MODE_TOOL_PRIORITY = new Map([
   ["execute.js", 0],
   ["get_runtime_context.ts", 1],
   ["get_runtime_context.js", 1],
-  ["search.ts", 2],
-  ["search.js", 2],
-  ["exec.ts", 3],
-  ["exec.js", 3],
+  ["lookup_engine_query.ts", 2],
+  ["lookup_engine_query.js", 2],
+  ["search.ts", 3],
+  ["search.js", 3],
+  ["exec.ts", 4],
+  ["exec.js", 4],
 ]);
 
 function resolveToolsetMode(): "code" | "full" {

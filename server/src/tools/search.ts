@@ -320,7 +320,7 @@ function buildSearchResponse(
     source: "api-index",
     primaryTool: "execute",
     guidance:
-      "Do not start with search. For simple tasks like getting the first wall id, current view info, or selected elements, execute must be tried first. Use search only after execute fails or when blocked on one specific Revit API detail, then continue with execute immediately.",
+      "Do not start with search. For model/element tasks, execute-first is preferred. For API/member discovery tasks, lookup_engine_query-first is preferred. Use search only after one of those paths still leaves a specific Revit API gap, then continue with execute immediately.",
     runtimeVersionMatched,
     postSearchAction: "retry_execute_once",
     totalMatches: preferredMatches.length,
@@ -336,7 +336,7 @@ function buildSearchResponse(
 export function registerSearchTool(server: McpServer) {
   server.tool(
     "search",
-    "Revit API coding gap-filler for Code Mode. Never use this as the first step for ordinary model queries. If the task is something simple like finding the first wall, reading parameters, listing selected elements, or inspecting the current view, execute must be attempted first. Search is only for one specific missing API detail after an execute attempt fails.",
+    "Revit API coding gap-filler for Code Mode. Never use this as the first step for ordinary model queries. Keep execute-first for model/element queries; for API/member discovery queries, prefer lookup_engine_query first. Search is only for one specific missing API detail after execute or lookup_engine_query leaves a narrow gap.",
     {
       query: z
         .string()

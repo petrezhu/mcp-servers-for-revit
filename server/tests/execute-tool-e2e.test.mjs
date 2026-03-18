@@ -118,6 +118,9 @@ test("execute tool falls back to legacy execute bridge command over socket", asy
     const payload = JSON.parse(response.content[0].text);
     assert.equal(payload.success, true);
     assert.equal(payload.tool, "execute");
+    assert.equal(payload.completionHint, "answer_ready");
+    assert.equal(payload.nextBestAction, "respond_to_user");
+    assert.equal(payload.retryRecommended, false);
     assert.deepEqual(payload.result, {
       echoedMode: "read_only",
       echoedCode: "return 42;",

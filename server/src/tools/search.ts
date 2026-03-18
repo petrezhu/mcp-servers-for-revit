@@ -281,6 +281,17 @@ function toSearchResult(item: ScoredEntry) {
   };
 }
 
+function hasVersionSensitiveMismatch(result: ReturnType<typeof toSearchResult>): boolean {
+  const textBlock = [result.answer, result.snippet, ...(result.pitfalls ?? [])]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    textBlock.includes("IntegerValue") ||
+    textBlock.includes("DisplayUnitType")
+  );
+}
+
 function buildSearchResponse(
   args: { query: string; category?: string; limit: number },
   ranked: ScoredEntry[]
@@ -296,6 +307,9 @@ function buildSearchResponse(
         ? "api_metadata_fallback"
         : "no_match";
   const results = preferredMatches.slice(0, args.limit).map(toSearchResult);
+  const runtimeVersionMatched = !results.some((result) =>
+    hasVersionSensitiveMismatch(result)
+  );
 
   return {
     success: true,
@@ -307,6 +321,8 @@ function buildSearchResponse(
     primaryTool: "execute",
     guidance:
       "Do not start with search. For simple tasks like getting the first wall id, current view info, or selected elements, execute must be tried first. Use search only after execute fails or when blocked on one specific Revit API detail, then continue with execute immediately.",
+    runtimeVersionMatched,
+    postSearchAction: "retry_execute_once",
     totalMatches: preferredMatches.length,
     resultCount: results.length,
     results,

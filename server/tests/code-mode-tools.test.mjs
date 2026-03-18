@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { registerExecuteTool } from "../build/tools/execute.js";
+import { registerGetRuntimeContextTool } from "../build/tools/get_runtime_context.js";
 import { registerSearchTool } from "../build/tools/search.js";
 import { registerTools } from "../build/tools/register.js";
 
@@ -46,9 +47,23 @@ test("search tool payload tells the agent to try execute first", async () => {
 
   assert.equal(payload.primaryTool, "execute");
   assert.match(payload.guidance, /execute must be tried first/i);
+  assert.equal(typeof payload.runtimeVersionMatched, "boolean");
+  assert.equal(payload.postSearchAction, "retry_execute_once");
 });
 
-test("code mode registers execute before search before exec", async () => {
+test("runtime context tool is available in code mode", async () => {
+  const server = new FakeServer();
+
+  registerGetRuntimeContextTool(server);
+
+  const runtimeTool = server.tools.find(
+    (tool) => tool.name === "get_runtime_context"
+  );
+  assert.ok(runtimeTool);
+  assert.match(runtimeTool.description, /runtime probe/i);
+});
+
+test("code mode registers execute before runtime context before search before exec", async () => {
   const previousToolset = process.env.REVIT_MCP_TOOLSET;
   const previousLegacyToggle = process.env.REVIT_MCP_ENABLE_LEGACY_TOOLS;
   const server = new FakeServer();
@@ -73,7 +88,7 @@ test("code mode registers execute before search before exec", async () => {
   }
 
   assert.deepEqual(
-    server.tools.slice(0, 3).map((tool) => tool.name),
-    ["execute", "search", "exec"]
+    server.tools.slice(0, 4).map((tool) => tool.name),
+    ["execute", "get_runtime_context", "search", "exec"]
   );
 });

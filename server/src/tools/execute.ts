@@ -36,6 +36,102 @@ const EXECUTION_WRAPPER_GUIDANCE = [
   "Return a scalar, object, or collection from the snippet body.",
 ].join("\n");
 
+type BridgeError = {
+  type?: string;
+  errorCode?: string;
+  diagnostics?: unknown[];
+  retrySuggested?: boolean;
+  suggestedFix?: string;
+};
+
+type BridgeExecutionResult = {
+  Success?: boolean;
+  ErrorMessage?: string;
+  Error?: BridgeError;
+  CompletionHint?: string;
+  NextBestAction?: string;
+  RetryRecommended?: boolean;
+};
+
+function asBridgeExecutionResult(value: unknown): BridgeExecutionResult | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  return value as BridgeExecutionResult;
+}
+
+function normalizeExecutionSignals(response: unknown) {
+  const bridge = asBridgeExecutionResult(response);
+  const executionSucceeded = bridge?.Success !== false;
+  const error = bridge?.Error ?? null;
+
+  const completionHint =
+    bridge?.CompletionHint ??
+    (executionSucceeded ? "answer_ready" : "partial");
+  const nextBestAction =
+    bridge?.NextBestAction ??
+    (executionSucceeded ? "respond_to_user" : "retry_execute");
+  const retryRecommended =
+    bridge?.RetryRecommended ??
+    (error?.retrySuggested ?? !executionSucceeded);
+
+  return {
+    success: executionSucceeded,
+    completionHint,
+    nextBestAction,
+    retryRecommended,
+    error,
+    errorMessage: bridge?.ErrorMessage ?? null,
+  };
+}
+
+function classifyTransportError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+
+  if (/method\s+'(?:exec|execute)'\s+not\s+found/i.test(message)) {
+    return {
+      errorCode: "ERR_RPC_METHOD_NOT_FOUND",
+      retrySuggested: false,
+      nextBestAction: "respond_to_user",
+      suggestedFix:
+        "Bridge command not found. Ensure plugin commandset is loaded and supports `execute`/`exec` aliases.",
+    };
+  }
+
+  if (normalized.includes("timed out")) {
+    return {
+      errorCode: "ERR_EXECUTION_TIMEOUT",
+      retrySuggested: true,
+      nextBestAction: "retry_execute",
+      suggestedFix:
+        "Execution timed out. Simplify the snippet, reduce traversal scope, and retry once.",
+    };
+  }
+
+  if (
+    normalized.includes("connect to revit client failed") ||
+    normalized.includes("连接到revit客户端失败") ||
+    normalized.includes("econnrefused")
+  ) {
+    return {
+      errorCode: "ERR_RPC_CONNECTION_FAILED",
+      retrySuggested: true,
+      nextBestAction: "retry_execute",
+      suggestedFix:
+        "Check whether Revit plugin bridge is running and port/host settings are correct, then retry.",
+    };
+  }
+
+  return {
+    errorCode: "ERR_RPC_CONNECTION_FAILED",
+    retrySuggested: true,
+    nextBestAction: "retry_execute",
+    suggestedFix: "Retry after verifying bridge connectivity.",
+  };
+}
+
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
@@ -66,6 +162,7 @@ export function registerExecuteTool(server: McpServer) {
         const response = await withRevitConnection(async (revitClient) => {
           return await sendCodeExecutionCommand(revitClient, params);
         });
+        const signals = normalizeExecutionSignals(response);
 
         return {
           content: [
@@ -73,15 +170,20 @@ export function registerExecuteTool(server: McpServer) {
               type: "text",
               text: JSON.stringify(
                 {
-                  success: true,
+                  success: signals.success,
                   tool: "execute",
                   bridgeCommand: "execute",
                   workflow: "execute-first",
                   mode: args.mode,
+                  completionHint: signals.completionHint,
+                  nextBestAction: signals.nextBestAction,
+                  retryRecommended: signals.retryRecommended,
                   guidance:
                     args.mode === "modify"
                       ? "modify mode should only be used after explicit user approval."
                       : "execute is the mandatory first step for normal queries. Only use search after this fails because of one specific missing Revit API detail, then retry execute immediately.",
+                  error: signals.error,
+                  errorMessage: signals.errorMessage,
                   result: response,
                 },
                 null,
@@ -91,11 +193,33 @@ export function registerExecuteTool(server: McpServer) {
           ],
         };
       } catch (error) {
+        const classified = classifyTransportError(error);
+        const message = error instanceof Error ? error.message : String(error);
         return {
           content: [
             {
               type: "text",
-              text: `Execute failed: ${error instanceof Error ? error.message : String(error)}. If the failure is due to an unknown Revit API detail, call search once with that specific gap, then retry execute.`,
+              text: JSON.stringify(
+                {
+                  success: false,
+                  tool: "execute",
+                  bridgeCommand: "execute",
+                  mode: args.mode,
+                  completionHint: "partial",
+                  nextBestAction: classified.nextBestAction,
+                  retryRecommended: classified.retrySuggested,
+                  errorMessage: message,
+                  error: {
+                    type: "transport",
+                    errorCode: classified.errorCode,
+                    diagnostics: [],
+                    retrySuggested: classified.retrySuggested,
+                    suggestedFix: classified.suggestedFix,
+                  },
+                },
+                null,
+                2
+              ),
             },
           ],
           isError: true,

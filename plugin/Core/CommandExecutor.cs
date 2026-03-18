@@ -4,6 +4,7 @@ using RevitMCPSDK.API.Models.JsonRPC;
 using RevitMCPSDK.Exceptions;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace revit_mcp_plugin.Core
 {
@@ -39,7 +40,7 @@ namespace revit_mcp_plugin.Core
                 string resolvedMethod;
                 if (!TryResolveCommand(requestedMethod, out resolvedMethod, out command))
                 {
-                    string registeredCommands = string.Join(", ", _commandRegistry.GetRegisteredCommands());
+                    string registeredCommands = GetRegisteredCommandsSummary();
                     _logger.Warning("未找到命令: {0}\nCommand not found: {0}\n已注册命令 / Registered commands: {1}",
                         requestedMethod, requestedMethod, string.IsNullOrWhiteSpace(registeredCommands) ? "<none>" : registeredCommands);
                     return CreateErrorResponse(request.Id,
@@ -113,6 +114,32 @@ namespace revit_mcp_plugin.Core
 
             resolvedMethod = aliasedMethod;
             return true;
+        }
+
+        /// <summary>
+        /// 获取当前注册命令摘要，便于命令未命中时输出诊断日志。
+        /// </summary>
+        /// <returns>已注册命令列表；若当前注册表实现不支持枚举，则返回占位文本。</returns>
+        private string GetRegisteredCommandsSummary()
+        {
+            if (_commandRegistry == null)
+            {
+                return "<unavailable>";
+            }
+
+            MethodInfo getRegisteredCommandsMethod = _commandRegistry.GetType().GetMethod("GetRegisteredCommands", Type.EmptyTypes);
+            if (getRegisteredCommandsMethod == null)
+            {
+                return "<unavailable>";
+            }
+
+            IEnumerable<string> commands = getRegisteredCommandsMethod.Invoke(_commandRegistry, null) as IEnumerable<string>;
+            if (commands == null)
+            {
+                return "<unavailable>";
+            }
+
+            return string.Join(", ", commands);
         }
 
         private string CreateSuccessResponse(string id, object result)

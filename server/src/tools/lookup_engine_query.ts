@@ -120,13 +120,20 @@ const LOOKUP_ENGINE_FALLBACK_PROBE = [
 ].join("\n");
 
 function isMethodNotFoundError(error: unknown, method: string): boolean {
-  if (!(error instanceof Error)) {
+  if (!(error instanceof Error) || !method) {
     return false;
   }
 
   const escapedMethod = method.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`method\\s+'${escapedMethod}'\\s+not\\s+found`, "i").test(
-    error.message
+
+  return (
+    new RegExp(`method\\s+'${escapedMethod}'\\s+not\\s+found`, "i").test(
+      error.message
+    ) ||
+    new RegExp(`method\\s+not\\s+found\\s*:\\s*'${escapedMethod}'`, "i").test(
+      error.message
+    ) ||
+    new RegExp(`未找到方法\\s*:\\s*'${escapedMethod}'`, "i").test(error.message)
   );
 }
 
@@ -163,7 +170,11 @@ function classifyTransportError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
 
-  if (/method\s+'(?:lookup_engine_query|exec|execute)'\s+not\s+found/i.test(message)) {
+  if (
+    isMethodNotFoundError(error, LOOKUP_ENGINE_COMMAND) ||
+    isMethodNotFoundError(error, "exec") ||
+    isMethodNotFoundError(error, "execute")
+  ) {
     return {
       errorCode: "ERR_RPC_METHOD_NOT_FOUND",
       retrySuggested: false,

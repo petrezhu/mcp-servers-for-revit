@@ -28,6 +28,31 @@ test("sendCodeExecutionCommand falls back from exec to execute on method-not-fou
   ]);
 });
 
+test("sendCodeExecutionCommand falls back on 'Method not found: exec' message shape", async () => {
+  const calls = [];
+  const expectedResult = { ok: true };
+  const revitClient = {
+    async sendCommand(command, params) {
+      calls.push({ command, params });
+
+      if (command === "exec") {
+        throw new Error("Method not found: 'exec'");
+      }
+
+      return expectedResult;
+    },
+  };
+  const params = { code: "return 1;", mode: "read_only" };
+
+  const result = await sendCodeExecutionCommand(revitClient, params);
+
+  assert.deepEqual(result, expectedResult);
+  assert.deepEqual(calls, [
+    { command: "exec", params },
+    { command: "execute", params },
+  ]);
+});
+
 test("sendCodeExecutionCommand does not hide non-method-not-found errors", async () => {
   const revitClient = {
     async sendCommand() {

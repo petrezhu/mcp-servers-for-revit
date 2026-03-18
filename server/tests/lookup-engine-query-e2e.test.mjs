@@ -156,14 +156,15 @@ test("lookup_engine_query tool falls back to execute bridge path when lookup eng
       createJsonRpcResponse(request.id, {
         error: {
           code: -32601,
-          message: "Method 'lookup_engine_query' not found",
+          message:
+            "未找到方法: 'lookup_engine_query'\nMethod not found: 'lookup_engine_query'",
         },
       }),
     onExec: (request) =>
       createJsonRpcResponse(request.id, {
         error: {
           code: -32601,
-          message: "Method 'exec' not found",
+          message: "Method not found: 'exec'",
         },
       }),
     onExecute: (request) =>

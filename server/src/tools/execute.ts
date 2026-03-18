@@ -3,17 +3,41 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
 import { sendCodeExecutionCommand } from "./codeExecution.js";
 
+const EXECUTION_WRAPPER_GUIDANCE = [
+  "You are filling in the body of a pre-wrapped C# method, not writing a full standalone program.",
+  "The bridge wraps your snippet like:",
+  "using System;",
+  "using System.Linq;",
+  "using System.Collections.Generic;",
+  "using Autodesk.Revit.DB;",
+  "using Autodesk.Revit.UI;",
+  "",
+  "namespace AIGeneratedCode",
+  "{",
+  "    public static class CodeExecutor",
+  "    {",
+  "        public static object Execute(Document document, UIApplication uiApp, object[] parameters)",
+  "        {",
+  "            var doc = document;",
+  "            var uidoc = uiApp?.ActiveUIDocument;",
+  "            var app = uiApp;",
+  "            var uiapp = uiApp;",
+  "            var application = document?.Application;",
+  "",
+  "            // your snippet is inserted here",
+  "        }",
+  "    }",
+  "}",
+  "Do not redeclare doc/uidoc/app/uiapp/application. Do not invent placeholders like RevitLookupDb.ActiveDbDocument.",
+  "Return a scalar, object, or collection from the snippet body.",
+].join("\n");
+
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
     "Primary Code Mode tool. Start here for nearly all model queries. Always attempt one read-only C# execution before search. For simple requests like 'get the first wall id', 'list selected elements', or 'read current view info', call execute directly without any search step.",
     {
-      code: z
-        .string()
-        .min(1)
-        .describe(
-          "C# method-body code to execute inside Revit. The execution context already provides common Revit objects such as `doc`, so do not redeclare `doc` or invent placeholders like `RevitLookupDb.ActiveDbDocument`. Prefer a complete read-only query snippet that returns a scalar, object, or collection. Use your best reasonable Revit API guess instead of calling search first, especially for straightforward element lookup tasks."
-        ),
+      code: z.string().min(1).describe(EXECUTION_WRAPPER_GUIDANCE),
       parameters: z
         .array(z.any())
         .optional()

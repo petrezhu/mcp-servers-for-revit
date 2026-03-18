@@ -23,6 +23,8 @@ test("execute tool guidance keeps execute as the first step", async () => {
   const executeTool = server.tools.find((tool) => tool.name === "execute");
   assert.ok(executeTool);
   assert.match(executeTool.description, /always attempt one read-only c# execution before search/i);
+  assert.match(executeTool.schema.code.description, /already provides common Revit objects such as `doc`/i);
+  assert.match(executeTool.schema.code.description, /do not redeclare `doc`/i);
 });
 
 test("search tool payload tells the agent to try execute first", async () => {

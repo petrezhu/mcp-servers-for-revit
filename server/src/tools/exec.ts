@@ -8,7 +8,7 @@ export function registerExecTool(server: McpServer) {
     "exec",
     "Legacy alias for `execute`. Prefer `execute` in Code Mode. Use `read_only` for inspection and analysis, and `modify` only after explicit user approval.",
     {
-      code: z.string().min(1).describe("C# method-body code to execute inside Revit. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
+      code: z.string().min(1).describe("C# method-body code to execute inside Revit. The execution context already provides common Revit objects such as `doc`, so do not redeclare `doc` or invent placeholders like `RevitLookupDb.ActiveDbDocument`. The bridge accepts plain snippets, fenced code blocks, and top-level using statements."),
       parameters: z.array(z.any()).optional().default([]).describe("Optional parameters passed through to the Revit command."),
       mode: z.enum(["read_only", "modify"]).optional().default("read_only").describe("Execution mode. Default to `read_only` for queries and analysis. Use `modify` only after the user explicitly confirms model changes."),
     },

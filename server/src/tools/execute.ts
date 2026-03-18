@@ -12,7 +12,7 @@ export function registerExecuteTool(server: McpServer) {
         .string()
         .min(1)
         .describe(
-          "C# method-body code to execute inside Revit. Prefer a complete read-only query snippet that returns a scalar, object, or collection. Use your best reasonable Revit API guess instead of calling search first, especially for straightforward element lookup tasks."
+          "C# method-body code to execute inside Revit. The execution context already provides common Revit objects such as `doc`, so do not redeclare `doc` or invent placeholders like `RevitLookupDb.ActiveDbDocument`. Prefer a complete read-only query snippet that returns a scalar, object, or collection. Use your best reasonable Revit API guess instead of calling search first, especially for straightforward element lookup tasks."
         ),
       parameters: z
         .array(z.any())

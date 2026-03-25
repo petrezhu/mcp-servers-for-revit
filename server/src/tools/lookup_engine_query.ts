@@ -255,8 +255,7 @@ async function sendLookupEngineQueryCommand(
             errorCode: "ERR_LOOKUP_ENGINE_QUERY_FAILED",
             diagnostics: [],
             retrySuggested: true,
-            suggestedFix:
-              "Review bridge diagnostics and verify bundled LookupEngine/RevitLookup dependencies match the current Revit version, then retry.",
+            suggestedFix: "Review bridge diagnostics and retry with a narrower query.",
           } as BridgeError)
         : (null as BridgeError | null),
       errorMessage: directErrorMessage,

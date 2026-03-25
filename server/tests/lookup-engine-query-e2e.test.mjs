@@ -147,10 +147,9 @@ test("lookup_engine_query surfaces direct bridge fallback diagnostics when engin
   const bridgeResult = {
     query: "Wall",
     matchedCount: 1,
-    runtimeSource: "lookup_engine",
-    errorMessage:
-      "LookupEngine dependency is missing: LookupEngine",
-    results: [],
+    runtimeSource: "revit-runtime-reflection-fallback",
+    errorMessage: "RevitLookup assembly is not loaded. Start RevitLookup first, then retry lookup_engine_query.",
+    results: [{ fullName: "Autodesk.Revit.DB.Wall", memberSource: "reflection_fallback" }],
   };
 
   const bridge = await startMockRevitBridge({
@@ -180,7 +179,7 @@ test("lookup_engine_query surfaces direct bridge fallback diagnostics when engin
 
     const payload = JSON.parse(response.content[0].text);
     assert.equal(payload.success, false);
-    assert.equal(payload.source, "lookup_engine");
+    assert.equal(payload.source, "runtime_reflection_fallback");
     assert.equal(payload.errorMessage, bridgeResult.errorMessage);
     assert.equal(payload.error?.errorCode, "ERR_LOOKUP_ENGINE_QUERY_FAILED");
     assert.deepEqual(payload.result, bridgeResult);

@@ -50,6 +50,13 @@
         <StartArguments>/language ENG</StartArguments>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <RevitLookupRoot Condition="'$(RevitLookupRoot)' == ''">$(MSBuildThisFileDirectory)..\..\RevitLookup\</RevitLookupRoot>
+        <LookupProjectConfiguration>$([System.String]::Copy('$(Configuration)').Replace(' ', '.'))</LookupProjectConfiguration>
+        <LookupEngineProjectPath>$(RevitLookupRoot)source\LookupEngine\source\LookupEngine\LookupEngine.csproj</LookupEngineProjectPath>
+        <RevitLookupProjectPath>$(RevitLookupRoot)source\RevitLookup\RevitLookup.csproj</RevitLookupProjectPath>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
@@ -64,6 +71,24 @@
     <ItemGroup>
       <Reference Include="System.Net.Http" />
     </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="$(LookupEngineProjectPath)"
+                          Condition="'$(RevitVersion)' != '' and $(RevitVersion) &gt;= 2021 and Exists('$(LookupEngineProjectPath)')"
+                          AdditionalProperties="Configuration=$(LookupProjectConfiguration);RevitVersion=$(RevitVersion)" />
+        <ProjectReference Include="$(RevitLookupProjectPath)"
+                          Condition="'$(RevitVersion)' != '' and $(RevitVersion) &gt;= 2021 and Exists('$(RevitLookupProjectPath)')"
+                          AdditionalProperties="Configuration=$(LookupProjectConfiguration);RevitVersion=$(RevitVersion);DeployAddin=false;LaunchRevit=false" />
+    </ItemGroup>
+
+    <Target Name="ValidateLookupCompileTimeDependencies" BeforeTargets="ResolveReferences">
+        <Error Condition="'$(RevitVersion)' != '' and $(RevitVersion) &lt; 2021"
+               Text="Compile-time LookupEngine/RevitLookup integration is only supported for Revit 2021 and newer because the vendored RevitLookup project does not define R20 build configurations." />
+        <Error Condition="!Exists('$(LookupEngineProjectPath)')"
+               Text="Compile-time LookupEngine dependency not found at '$(LookupEngineProjectPath)'. Set RevitLookupRoot to a RevitLookup checkout or submodule." />
+        <Error Condition="!Exists('$(RevitLookupProjectPath)')"
+               Text="Compile-time RevitLookup dependency not found at '$(RevitLookupProjectPath)'. Set RevitLookupRoot to a RevitLookup checkout or submodule." />
+    </Target>
 
     <Target Name="DeployCommandSet" AfterTargets="Build">
         <PropertyGroup>

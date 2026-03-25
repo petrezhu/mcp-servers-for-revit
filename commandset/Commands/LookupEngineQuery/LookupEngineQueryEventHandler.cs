@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -87,44 +86,55 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
                     .Take(_limit)
                     .ToList();
 
-                string bridgeInitializationError;
-                var engineBridge = LookupEngineBridge.TryCreate(out bridgeInitializationError);
-                bool engineAvailable = engineBridge != null;
-                int engineMemberHitCount = 0;
-                var bridgeWarnings = new List<string>();
-
-                if (!string.IsNullOrWhiteSpace(bridgeInitializationError))
+                if (!LookupQueryProviderFactory.TryCreate(out var lookupProvider, out var initializationError))
                 {
-                    bridgeWarnings.Add(bridgeInitializationError);
+                    ResultInfo = new LookupEngineQueryResult
+                    {
+                        Query = _query,
+                        MatchedCount = 0,
+                        RuntimeSource = "lookup_engine",
+                        ErrorMessage = initializationError,
+                        AssemblyVersions = new LookupAssemblyVersions
+                        {
+                            RevitDb = dbAssembly.GetName().Version?.ToString(),
+                            RevitUi = uiAssembly.GetName().Version?.ToString()
+                        },
+                        Engine = new LookupEngineRuntimeStatus
+                        {
+                            Requested = true,
+                            Available = false,
+                            Used = false,
+                            UsesDescriptorsMap = false,
+                            Diagnostics = new List<string> { initializationError }
+                        },
+                        Results = new List<LookupTypeResult>()
+                    };
+                    return;
                 }
+
+                bool engineAvailable = true;
+                int engineMemberHitCount = 0;
+                var providerDiagnostics = lookupProvider.Diagnostics.ToList();
 
                 var results = new List<LookupTypeResult>(matched.Count);
                 foreach (var item in matched)
                 {
                     var members = new List<string>();
-                    string memberSource = "none";
+                    string memberSource = "lookup_engine";
                     string memberError = null;
 
                     if (_includeMembers)
                     {
-                        string engineError = null;
-                        if (engineBridge != null &&
-                            engineBridge.TryGetMembers(item.Type, MaxMemberCount, out var engineMembers, out engineError))
+                        if (lookupProvider.TryGetMembers(item.Type, MaxMemberCount, out var engineMembers, out var engineError))
                         {
                             members = engineMembers;
-                            memberSource = "lookup_engine";
                             engineMemberHitCount++;
                         }
                         else
                         {
-                            if (!string.IsNullOrWhiteSpace(engineError))
-                            {
-                                memberError = engineError;
-                                bridgeWarnings.Add($"{item.FullName}: {engineError}");
-                            }
-
-                            members = GetReflectionMembers(item.Type, MaxMemberCount);
-                            memberSource = "reflection_fallback";
+                            memberSource = "lookup_engine_error";
+                            memberError = engineError;
+                            providerDiagnostics.Add($"{item.FullName}: {engineError}");
                         }
                     }
 
@@ -146,21 +156,21 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
                 {
                     Query = _query,
                     MatchedCount = results.Count,
-                    RuntimeSource = engineUsed ? "lookup_engine" : "revit-runtime-reflection-fallback",
+                    RuntimeSource = "lookup_engine",
                     AssemblyVersions = new LookupAssemblyVersions
                     {
                         RevitDb = dbAssembly.GetName().Version?.ToString(),
                         RevitUi = uiAssembly.GetName().Version?.ToString(),
-                        LookupEngine = engineBridge?.LookupEngineVersion,
-                        RevitLookup = engineBridge?.RevitLookupVersion
+                        LookupEngine = lookupProvider.LookupEngineVersion,
+                        RevitLookup = lookupProvider.RevitLookupVersion
                     },
                     Engine = new LookupEngineRuntimeStatus
                     {
                         Requested = true,
                         Available = engineAvailable,
                         Used = engineUsed,
-                        UsesDescriptorsMap = engineBridge?.UsesDescriptorsMap ?? false,
-                        Diagnostics = bridgeWarnings
+                        UsesDescriptorsMap = lookupProvider.UsesDescriptorsMap,
+                        Diagnostics = providerDiagnostics
                     },
                     Results = results
                 };
@@ -171,7 +181,7 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
                 {
                     Query = _query,
                     MatchedCount = 0,
-                    RuntimeSource = "revit-runtime-reflection-fallback",
+                    RuntimeSource = "lookup_engine",
                     ErrorMessage = ex.Message,
                     AssemblyVersions = new LookupAssemblyVersions(),
                     Engine = new LookupEngineRuntimeStatus
@@ -195,19 +205,6 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
         public string GetName()
         {
             return "Lookup Engine Query Event Handler";
-        }
-
-        private static List<string> GetReflectionMembers(Type type, int maxMembers)
-        {
-            return type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-                .Where(member =>
-                    member.MemberType == MemberTypes.Property ||
-                    member.MemberType == MemberTypes.Method ||
-                    member.MemberType == MemberTypes.Field)
-                .Select(member => $"{member.MemberType}:{member.Name}")
-                .Distinct(StringComparer.Ordinal)
-                .Take(maxMembers)
-                .ToList();
         }
 
         private static List<string> TokenizeQuery(string normalizedQuery)
@@ -255,272 +252,6 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
             }
 
             return "class";
-        }
-
-        private sealed class LookupEngineBridge
-        {
-            private readonly Type _decomposeOptionsType;
-            private readonly MethodInfo _decomposeMembersMethod;
-            private readonly MethodInfo _findDescriptorMethod;
-            private readonly PropertyInfo _typeResolverProperty;
-
-            public string LookupEngineVersion { get; }
-            public string RevitLookupVersion { get; }
-            public bool UsesDescriptorsMap => _findDescriptorMethod != null && _typeResolverProperty != null;
-
-            private LookupEngineBridge(
-                Type decomposeOptionsType,
-                MethodInfo decomposeMembersMethod,
-                MethodInfo findDescriptorMethod,
-                PropertyInfo typeResolverProperty,
-                string lookupEngineVersion,
-                string revitLookupVersion)
-            {
-                _decomposeOptionsType = decomposeOptionsType;
-                _decomposeMembersMethod = decomposeMembersMethod;
-                _findDescriptorMethod = findDescriptorMethod;
-                _typeResolverProperty = typeResolverProperty;
-                LookupEngineVersion = lookupEngineVersion;
-                RevitLookupVersion = revitLookupVersion;
-            }
-
-            public static LookupEngineBridge TryCreate(out string errorMessage)
-            {
-                errorMessage = null;
-
-                var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-                var lookupEngineAssembly = FindAssemblyBySimpleName(loadedAssemblies, "LookupEngine");
-                if (lookupEngineAssembly == null)
-                {
-                    errorMessage = "LookupEngine assembly is not loaded. Start RevitLookup to enable engine-backed queries.";
-                    return null;
-                }
-
-                var lookupComposerType = lookupEngineAssembly.GetType("LookupEngine.LookupComposer", false);
-                var decomposeOptionsType = lookupEngineAssembly.GetType("LookupEngine.DecomposeOptions", false);
-
-                if (lookupComposerType == null || decomposeOptionsType == null)
-                {
-                    errorMessage = "LookupEngine types were not found in loaded assembly.";
-                    return null;
-                }
-
-                var decomposeMembersMethod = lookupComposerType
-                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                    .FirstOrDefault(method =>
-                    {
-                        if (!string.Equals(method.Name, "DecomposeMembers", StringComparison.Ordinal))
-                        {
-                            return false;
-                        }
-
-                        var parameters = method.GetParameters();
-                        return parameters.Length == 2 &&
-                               parameters[0].ParameterType == typeof(object) &&
-                               parameters[1].ParameterType == decomposeOptionsType;
-                    });
-
-                if (decomposeMembersMethod == null)
-                {
-                    errorMessage = "LookupComposer.DecomposeMembers(object, DecomposeOptions) is unavailable.";
-                    return null;
-                }
-
-                Type descriptorsMapType = loadedAssemblies
-                    .Select(assembly => assembly.GetType("RevitLookup.Core.Decomposition.DescriptorsMap", false))
-                    .FirstOrDefault(type => type != null);
-                var revitLookupAssembly = descriptorsMapType?.Assembly ?? FindAssemblyBySimpleName(loadedAssemblies, "RevitLookup");
-                MethodInfo findDescriptorMethod = descriptorsMapType?.GetMethod(
-                    "FindDescriptor",
-                    BindingFlags.Public | BindingFlags.Static,
-                    null,
-                    new[] { typeof(object), typeof(Type) },
-                    null
-                );
-
-                PropertyInfo typeResolverProperty = decomposeOptionsType.GetProperty("TypeResolver", BindingFlags.Public | BindingFlags.Instance);
-
-                return new LookupEngineBridge(
-                    decomposeOptionsType,
-                    decomposeMembersMethod,
-                    findDescriptorMethod,
-                    typeResolverProperty,
-                    lookupEngineAssembly.GetName().Version?.ToString(),
-                    revitLookupAssembly?.GetName().Version?.ToString()
-                );
-            }
-
-            public bool TryGetMembers(Type type, int maxMembers, out List<string> members, out string errorMessage)
-            {
-                members = new List<string>();
-                errorMessage = null;
-
-                try
-                {
-                    object options = Activator.CreateInstance(_decomposeOptionsType);
-                    ConfigureOptions(options);
-
-                    var rawMembers = _decomposeMembersMethod.Invoke(null, new object[] { type, options }) as IEnumerable;
-                    if (rawMembers == null)
-                    {
-                        errorMessage = "LookupEngine returned non-enumerable member payload.";
-                        return false;
-                    }
-
-                    foreach (var member in rawMembers)
-                    {
-                        string signature = FormatMemberSignature(member);
-                        if (!string.IsNullOrWhiteSpace(signature))
-                        {
-                            members.Add(signature);
-                        }
-                    }
-
-                    members = members
-                        .Distinct(StringComparer.Ordinal)
-                        .Take(maxMembers)
-                        .ToList();
-
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    errorMessage = Unwrap(ex).Message;
-                    return false;
-                }
-            }
-
-            private void ConfigureOptions(object options)
-            {
-                SetBool(options, "IncludeRoot", false);
-                SetBool(options, "IncludeFields", true);
-                SetBool(options, "IncludeEvents", false);
-                SetBool(options, "IncludeUnsupported", true);
-                SetBool(options, "IncludePrivateMembers", false);
-                SetBool(options, "IncludeStaticMembers", true);
-                SetBool(options, "EnableExtensions", true);
-                SetBool(options, "EnableRedirection", true);
-
-                if (_findDescriptorMethod == null || _typeResolverProperty == null)
-                {
-                    return;
-                }
-
-                if (!_typeResolverProperty.CanWrite)
-                {
-                    return;
-                }
-
-                var resolver = Delegate.CreateDelegate(_typeResolverProperty.PropertyType, _findDescriptorMethod);
-                _typeResolverProperty.SetValue(options, resolver);
-            }
-
-            private static void SetBool(object target, string propertyName, bool value)
-            {
-                var property = target.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
-                if (property == null || !property.CanWrite || property.PropertyType != typeof(bool))
-                {
-                    return;
-                }
-
-                property.SetValue(target, value);
-            }
-
-            private static string FormatMemberSignature(object member)
-            {
-                if (member == null)
-                {
-                    return null;
-                }
-
-                var memberType = member.GetType();
-                string name = memberType.GetProperty("Name")?.GetValue(member)?.ToString();
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    return null;
-                }
-
-                string kind = ResolveMemberKind(memberType.GetProperty("MemberAttributes")?.GetValue(member));
-                string valueType = GetNestedPropertyAsString(member, "Value", "TypeName");
-
-                if (!string.IsNullOrWhiteSpace(valueType))
-                {
-                    return $"{kind}:{name}->{valueType}";
-                }
-
-                return $"{kind}:{name}";
-            }
-
-            private static string ResolveMemberKind(object attributes)
-            {
-                string text = attributes?.ToString() ?? string.Empty;
-                if (text.IndexOf("Property", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return "Property";
-                }
-
-                if (text.IndexOf("Method", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return "Method";
-                }
-
-                if (text.IndexOf("Field", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return "Field";
-                }
-
-                if (text.IndexOf("Event", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return "Event";
-                }
-
-                if (text.IndexOf("Extension", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return "Extension";
-                }
-
-                return "Member";
-            }
-
-            private static string GetNestedPropertyAsString(object root, string firstPropertyName, string secondPropertyName)
-            {
-                var first = root.GetType().GetProperty(firstPropertyName, BindingFlags.Public | BindingFlags.Instance);
-                if (first == null)
-                {
-                    return null;
-                }
-
-                var firstValue = first.GetValue(root);
-                if (firstValue == null)
-                {
-                    return null;
-                }
-
-                var second = firstValue.GetType().GetProperty(secondPropertyName, BindingFlags.Public | BindingFlags.Instance);
-                if (second == null)
-                {
-                    return null;
-                }
-
-                return second.GetValue(firstValue)?.ToString();
-            }
-
-            private static Exception Unwrap(Exception ex)
-            {
-                while (ex is TargetInvocationException tie && tie.InnerException != null)
-                {
-                    ex = tie.InnerException;
-                }
-
-                return ex;
-            }
-
-            private static Assembly FindAssemblyBySimpleName(IEnumerable<Assembly> assemblies, string simpleName)
-            {
-                return assemblies.FirstOrDefault(assembly =>
-                    string.Equals(assembly.GetName().Name, simpleName, StringComparison.OrdinalIgnoreCase));
-            }
         }
     }
 

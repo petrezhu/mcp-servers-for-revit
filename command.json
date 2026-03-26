@@ -17,6 +17,26 @@
       "commandName": "lookup_engine_query",
       "description": "Query Revit runtime API symbols and members from the lookup engine bridge",
       "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "selection_roots",
+      "description": "Return RevitLookup-style root objects grouped by runtime type for current selection or active view",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "object_member_groups",
+      "description": "Return inheritance-aware member groups for a browsable RevitLookup object handle",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "expand_members",
+      "description": "Expand only explicitly requested members from a browsable RevitLookup object handle",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "navigate_object",
+      "description": "Navigate a complex RevitLookup value handle as the next browsable object layer",
+      "assemblyPath": "RevitMCPCommandSet.dll"
     }
   ]
 }

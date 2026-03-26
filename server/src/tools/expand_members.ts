@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerExpandMembersTool(server: McpServer) {
   server.tool(
     "expand_members",
-    "Expand only explicitly requested members from a RevitLookup-style object handle.",
+    "Inspection step 3. Expand only explicitly requested members from a RevitLookup-style object handle so routine inspection stays compact.",
     {
       objectHandle: z
         .string()

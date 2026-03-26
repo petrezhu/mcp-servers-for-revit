@@ -135,7 +135,7 @@ function classifyTransportError(error: unknown) {
 export function registerExecuteTool(server: McpServer) {
   server.tool(
     "execute",
-    "Primary Code Mode execution tool for model/element tasks. Use execute-first for project data queries like 'get first wall id', selected elements, or current view info. For runtime API/member discovery tasks (e.g., checking whether ElementId has Value or IntegerValue), use lookup_engine_query first as a parallel path.",
+    "Fallback execution tool for custom analysis and model changes. Prefer the selection_roots -> object_member_groups -> expand_members -> navigate_object flow for routine inspection; keep execute for freeform C# analysis, unsupported queries, or explicit modify operations. For runtime API/member discovery tasks (e.g., checking whether ElementId has Value or IntegerValue), use lookup_engine_query first as a parallel path.",
     {
       code: z.string().min(1).describe(EXECUTION_WRAPPER_GUIDANCE),
       parameters: z

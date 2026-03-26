@@ -2,10 +2,17 @@ using Newtonsoft.Json;
 
 namespace RevitMCPCommandSet.Models.ConnectRvtLookup;
 
+public static class SelectionRootsSources
+{
+    public const string SelectionOrActiveView = "selection_or_active_view";
+    public const string Selection = "selection";
+    public const string ActiveView = "active_view";
+}
+
 public sealed class SelectionRootsRequest
 {
     [JsonProperty("source")]
-    public string Source { get; set; } = "selection_or_active_view";
+    public string Source { get; set; } = SelectionRootsSources.SelectionOrActiveView;
 
     [JsonProperty("limitGroups")]
     public int LimitGroups { get; set; } = 20;
@@ -15,6 +22,20 @@ public sealed class SelectionRootsRequest
 
     [JsonProperty("tokenBudgetHint", NullValueHandling = NullValueHandling.Ignore)]
     public int? TokenBudgetHint { get; set; }
+
+    public bool Validate(out string errorMessage)
+    {
+        if (!string.Equals(Source, SelectionRootsSources.SelectionOrActiveView, StringComparison.Ordinal) &&
+            !string.Equals(Source, SelectionRootsSources.Selection, StringComparison.Ordinal) &&
+            !string.Equals(Source, SelectionRootsSources.ActiveView, StringComparison.Ordinal))
+        {
+            errorMessage = $"Unsupported source: '{Source}'";
+            return false;
+        }
+
+        errorMessage = null;
+        return true;
+    }
 }
 
 public sealed class ObjectMemberGroupsRequest
@@ -338,6 +359,25 @@ public static class QueryCommandResults
             CompletionHint = "partial",
             NextBestAction = "implement_query_handler",
             RetryRecommended = false
+        };
+    }
+
+    public static QueryCommandResult<T> RuntimeFailure<T>(string message, string errorCode, string suggestedFix, bool retrySuggested = false)
+    {
+        return new QueryCommandResult<T>
+        {
+            Success = false,
+            ErrorMessage = $"执行失败: {message}",
+            Error = new QueryErrorInfo
+            {
+                Type = "runtime",
+                ErrorCode = errorCode,
+                SuggestedFix = suggestedFix,
+                RetrySuggested = retrySuggested
+            },
+            CompletionHint = "partial",
+            NextBestAction = retrySuggested ? "retry_execute" : "respond_to_user",
+            RetryRecommended = retrySuggested
         };
     }
 }

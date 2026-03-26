@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerNavigateObjectTool(server: McpServer) {
   server.tool(
     "navigate_object",
-    "Open a complex RevitLookup-style value handle as the next browsable object layer.",
+    "Inspection step 4. Open a complex RevitLookup-style value handle as the next browsable object layer without falling back to execute.",
     {
       valueHandle: z
         .string()

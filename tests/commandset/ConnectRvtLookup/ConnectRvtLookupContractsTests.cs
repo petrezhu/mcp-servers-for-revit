@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Base;
 using RevitMCPCommandSet.Commands.ConnectRvtLookup;
 using RevitMCPCommandSet.Models.ConnectRvtLookup;
@@ -46,6 +47,20 @@ public class ConnectRvtLookupContractsTests
     }
 
     [Test]
+    public async Task SelectionRootsRequest_Validate_RejectsUnsupportedSource()
+    {
+        var request = new SelectionRootsRequest
+        {
+            Source = "all_documents"
+        };
+
+        var isValid = request.Validate(out var errorMessage);
+
+        await Assert.That(isValid).IsFalse();
+        await Assert.That(errorMessage).Contains("Unsupported source");
+    }
+
+    [Test]
     public async Task QueryCommandResult_SerializesExpectedContract()
     {
         var result = QueryCommandResults.NotImplemented<SelectionRootsResponse>(ConnectRvtLookupCommandNames.SelectionRoots);
@@ -57,11 +72,28 @@ public class ConnectRvtLookupContractsTests
     }
 
     [Test]
+    public async Task SelectionRootsResult_UsesObjectMemberGroupsAsNextBestAction()
+    {
+        var result = new QueryCommandResult<SelectionRootsResponse>
+        {
+            Success = true,
+            Data = new SelectionRootsResponse(),
+            CompletionHint = "answer_ready",
+            NextBestAction = ConnectRvtLookupCommandNames.ObjectMemberGroups,
+            RetryRecommended = false
+        };
+
+        var json = JsonConvert.SerializeObject(result);
+
+        await Assert.That(json).Contains("\"nextBestAction\":\"object_member_groups\"");
+    }
+
+    [Test]
     public async Task SelectionRootsResponse_SerializesGroupedRootItems()
     {
         var response = new SelectionRootsResponse
         {
-            Source = "selection_or_active_view",
+            Source = SelectionRootsSources.Selection,
             TotalRootCount = 1,
             Groups =
             [
@@ -90,5 +122,24 @@ public class ConnectRvtLookupContractsTests
         await Assert.That(json).Contains("\"objectHandle\":\"obj:1\"");
         await Assert.That(json).Contains("\"elementId\":12345");
         await Assert.That(json).Contains("\"typeName\":\"Wall\"");
+        await Assert.That(json.Contains("memberCount")).IsFalse();
+        await Assert.That(json.Contains("topMembers")).IsFalse();
+    }
+
+    [Test]
+    public async Task CommandManifest_RegistersConnectRvtLookupCommandsAlongsideExecute()
+    {
+        var manifestPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "command.json"));
+        var manifest = JObject.Parse(await File.ReadAllTextAsync(manifestPath));
+        var commandNames = manifest["commands"]?
+            .Select(token => token["commandName"]?.Value<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+
+        await Assert.That(commandNames).Contains("execute");
+        await Assert.That(commandNames).Contains("selection_roots");
+        await Assert.That(commandNames).Contains("object_member_groups");
+        await Assert.That(commandNames).Contains("expand_members");
+        await Assert.That(commandNames).Contains("navigate_object");
     }
 }

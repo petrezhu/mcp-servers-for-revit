@@ -8,6 +8,7 @@ public static class ConnectRvtLookupErrorCodes
     public const string QueryNotImplemented = "ERR_QUERY_NOT_IMPLEMENTED";
     public const string InvalidHandle = "ERR_INVALID_HANDLE";
     public const string NoActiveDocument = "ERR_NO_ACTIVE_DOCUMENT";
+    public const string LookupBridgeUnavailable = "ERR_LOOKUP_BRIDGE_UNAVAILABLE";
     public const string QueryTimeout = "ERR_QUERY_TIMEOUT";
     public const string MemberExpansionFailed = "ERR_MEMBER_EXPANSION_FAILED";
 }

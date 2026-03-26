@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerObjectMemberGroupsTool(server: McpServer) {
   server.tool(
     "object_member_groups",
-    "Get inheritance-aware member groups for a RevitLookup-style object handle.",
+    "Inspection step 2. Get inheritance-aware member groups for a RevitLookup-style object handle returned by selection_roots or navigate_object.",
     {
       objectHandle: z
         .string()

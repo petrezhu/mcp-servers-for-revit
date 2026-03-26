@@ -17,20 +17,34 @@ class FakeServer {
   }
 }
 
-test("execute tool guidance keeps execute as the first step", async () => {
+test("execute tool guidance keeps execute as the fallback path", async () => {
   const server = new FakeServer();
 
   registerExecuteTool(server);
 
   const executeTool = server.tools.find((tool) => tool.name === "execute");
   assert.ok(executeTool);
-  assert.match(executeTool.description, /execution tool for model\/element tasks/i);
-  assert.match(executeTool.description, /use execute-first/i);
+  assert.match(executeTool.description, /fallback execution tool/i);
+  assert.match(executeTool.description, /prefer the selection_roots -> object_member_groups -> expand_members -> navigate_object flow/i);
   assert.match(executeTool.description, /use lookup_engine_query first as a parallel path/i);
   assert.match(executeTool.schema.code.description, /filling in the body of a pre-wrapped C# method/i);
   assert.match(executeTool.schema.code.description, /public static object Execute\(Document document, UIApplication uiApp, object\[] parameters\)/i);
   assert.match(executeTool.schema.code.description, /\/\/ document: Autodesk\.Revit\.DB\.Document/i);
   assert.match(executeTool.schema.code.description, /No local aliases are predeclared for you/i);
+});
+
+test("selection_roots tool guidance makes inspection flow the preferred path", async () => {
+  const server = new FakeServer();
+
+  const { registerSelectionRootsTool } = await import(
+    "../build/tools/selection_roots.js"
+  );
+  registerSelectionRootsTool(server);
+
+  const rootsTool = server.tools.find((tool) => tool.name === "selection_roots");
+  assert.ok(rootsTool);
+  assert.match(rootsTool.description, /preferred inspection entrypoint/i);
+  assert.match(rootsTool.description, /without writing dynamic c#/i);
 });
 
 test("search tool payload tells the agent to try execute first", async () => {
@@ -80,7 +94,7 @@ test("lookup engine query tool is available in code mode", async () => {
   assert.match(lookupTool.description, /api\/member query tasks/i);
 });
 
-test("code mode registers execute before runtime context before lookup before search before exec", async () => {
+test("code mode registers inspection tools before execute fallback tools", async () => {
   const previousToolset = process.env.REVIT_MCP_TOOLSET;
   const previousLegacyToggle = process.env.REVIT_MCP_ENABLE_LEGACY_TOOLS;
   const server = new FakeServer();
@@ -105,7 +119,17 @@ test("code mode registers execute before runtime context before lookup before se
   }
 
   assert.deepEqual(
-    server.tools.slice(0, 5).map((tool) => tool.name),
-    ["execute", "get_runtime_context", "lookup_engine_query", "search", "exec"]
+    server.tools.slice(0, 9).map((tool) => tool.name),
+    [
+      "selection_roots",
+      "object_member_groups",
+      "expand_members",
+      "navigate_object",
+      "execute",
+      "get_runtime_context",
+      "lookup_engine_query",
+      "search",
+      "exec",
+    ]
   );
 });

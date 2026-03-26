@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerSelectionRootsTool(server: McpServer) {
   server.tool(
     "selection_roots",
-    "Get RevitLookup-style root objects. Returns selected elements as roots, or active-view elements when selection is empty.",
+    "Preferred inspection entrypoint. Get RevitLookup-style root objects first, then continue with object_member_groups, expand_members, and navigate_object without writing dynamic C#.",
     {
       source: z
         .enum(["selection_or_active_view"])

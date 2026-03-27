@@ -60,6 +60,10 @@ The **MCP Server** (TypeScript) translates tool calls from AI clients into WebSo
 3. Configure the MCP server in your AI client (see below)
 
 4. Start Revit - the plugin loads automatically
+5. MCP bridge behavior in Revit:
+   - The plugin starts the MCP socket server automatically right after Revit initialization, on the first safe idle cycle.
+   - The ribbon button `Revit MCP Switch` (`Open / Close mcp server`) is a toggle.
+   - Because startup is auto-open, the first click will close the server.
 
 ## MCP Server Setup
 
@@ -97,6 +101,11 @@ If using a release ZIP, the plugin is already included. For manual installation:
 1. Build the plugin from `plugin/` (see [Development](#development))
 2. Copy `mcp-servers-for-revit.addin` to `%AppData%\Autodesk\Revit\Addins\<version>\`
 3. Copy the `revit_mcp_plugin/` folder to the same addins directory
+
+Runtime behavior:
+
+- On Revit startup, the plugin automatically initializes and opens the local MCP socket server on the first safe idle cycle.
+- Use the ribbon button `Revit MCP Switch` to toggle server state at any time.
 
 ## Command Set Setup
 

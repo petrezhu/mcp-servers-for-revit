@@ -109,11 +109,13 @@ namespace revit_mcp_plugin.Core
                 {
                     IsBackground = true
                 };
-                _listenerThread.Start();              
+                _listenerThread.Start();
+                _logger?.Info("Socket service started on port {0}", _port);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 _isRunning = false;
+                _logger?.Error("Failed to start socket service on port {0}: {1}", _port, ex.Message);
             }
         }
 
@@ -133,9 +135,9 @@ namespace revit_mcp_plugin.Core
                     _listenerThread.Join(1000);
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // log error
+                _logger?.Error("Failed to stop socket service cleanly: {0}", ex.Message);
             }
         }
 

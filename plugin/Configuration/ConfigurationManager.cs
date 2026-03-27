@@ -198,10 +198,65 @@ namespace revit_mcp_plugin.Configuration
                 }
             }
 
+            TryAddDefaultCommandSetFallback(results, commandsDirectory);
+
             return results
                 .GroupBy(command => command.CommandName, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
                 .ToList();
+        }
+
+        private void TryAddDefaultCommandSetFallback(List<CommandConfig> results, string commandsDirectory)
+        {
+            const string commandSetName = "RevitMCPCommandSet";
+            const string assemblyFileName = "RevitMCPCommandSet.dll";
+
+            string commandSetDirectory = Path.Combine(commandsDirectory, commandSetName);
+            if (!Directory.Exists(commandSetDirectory))
+            {
+                return;
+            }
+
+            var versionDirectories = Directory.GetDirectories(commandSetDirectory)
+                .Select(Path.GetFileName)
+                .Where(name => int.TryParse(name, out _))
+                .ToArray();
+
+            if (versionDirectories.Length == 0)
+            {
+                return;
+            }
+
+            bool hasAssembly = versionDirectories.Any(version =>
+                File.Exists(Path.Combine(commandSetDirectory, version, assemblyFileName)));
+
+            if (!hasAssembly)
+            {
+                return;
+            }
+
+            var existing = results.ToDictionary(command => command.CommandName, StringComparer.OrdinalIgnoreCase);
+            foreach (var commandName in DefaultEnabledCommands)
+            {
+                if (string.Equals(commandName, "exec", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (existing.ContainsKey(commandName))
+                {
+                    continue;
+                }
+
+                results.Add(new CommandConfig
+                {
+                    CommandName = commandName,
+                    Description = string.Empty,
+                    AssemblyPath = Path.Combine(commandSetName, "{VERSION}", assemblyFileName),
+                    Enabled = true,
+                    SupportedRevitVersions = versionDirectories
+                });
+            }
         }
 
         private void SaveConfiguration()

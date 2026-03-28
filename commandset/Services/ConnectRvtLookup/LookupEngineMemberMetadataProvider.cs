@@ -44,6 +44,8 @@ public sealed class RuntimeLookupEngineMemberMetadataProvider : ILookupEngineMem
 
     public static ILookupEngineMemberMetadataProvider Create()
     {
+        LookupEngineAssemblyLoader.EnsureLoaded();
+
         var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
         var revitLookupAssembly = FindAssemblyBySimpleName(loadedAssemblies, "RevitLookup");
         var lookupEngineAssembly = FindAssemblyBySimpleName(loadedAssemblies, "LookupEngine");

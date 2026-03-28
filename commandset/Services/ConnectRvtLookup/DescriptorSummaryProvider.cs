@@ -29,6 +29,8 @@ public sealed class RuntimeDescriptorSummaryProvider : IDescriptorSummaryProvide
 
     public static IDescriptorSummaryProvider Create()
     {
+        LookupEngineAssemblyLoader.EnsureLoaded();
+
         var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
         var revitLookupAssembly = FindAssemblyBySimpleName(loadedAssemblies, "RevitLookup");
         var lookupEngineAbstractionsAssembly = FindAssemblyBySimpleName(loadedAssemblies, "LookupEngine.Abstractions");

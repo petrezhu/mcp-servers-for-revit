@@ -7,6 +7,7 @@ using System.Threading;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Newtonsoft.Json;
+using RevitMCPCommandSet.Services.ConnectRvtLookup;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Commands.LookupEngineQuery
@@ -86,6 +87,8 @@ namespace RevitMCPCommandSet.Commands.LookupEngineQuery
                     .ThenBy(item => item.FullName, StringComparer.Ordinal)
                     .Take(_limit)
                     .ToList();
+
+                LookupEngineAssemblyLoader.EnsureLoaded();
 
                 string bridgeInitializationError;
                 var engineBridge = LookupEngineBridge.TryCreate(out bridgeInitializationError);

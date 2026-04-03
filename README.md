@@ -6,10 +6,16 @@
 
 [中文说明](./README-zh.md)
 
-mcp-servers-for-revit enables AI clients like Claude, Cline, and other MCP-compatible tools to read, create, modify, and delete elements in Revit projects. It consists of three components: a TypeScript MCP server that exposes tools to AI, a C# Revit add-in that bridges commands into Revit, and a command set that implements the actual Revit API operations.
+`mcp-servers-for-revit` enables MCP-compatible AI clients (Claude, Cline, etc.) to inspect and operate Revit models through a local bridge.
+
+It contains three components:
+
+- `server/` (TypeScript): MCP server and tool surface for AI clients
+- `plugin/` (C#): Revit add-in that hosts the bridge inside Revit
+- `commandset/` (C#): Revit API command implementations invoked by the plugin
 
 > [!NOTE]
-> This is a fork of the original [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) project with additional tools and functionality improvements.
+> This repository is a fork of [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) with expanded tooling and workflow updates.
 
 ## Architecture
 
@@ -27,96 +33,121 @@ flowchart LR
     CommandSet -->|executes| Revit
 ```
 
-The **MCP Server** (TypeScript) translates tool calls from AI clients into WebSocket messages. The **Revit Plugin** (C#) runs inside Revit, listens for those messages, and dispatches them to the **Command Set** (C#), which executes the actual Revit API operations and returns results back up the chain.
+The MCP server receives tool calls from the AI client and forwards bridge commands over WebSocket. The Revit plugin dispatches those commands into the command set, which runs Revit API logic and returns structured results.
 
 ## Requirements
 
-- **Node.js 18+** (for the MCP server)
-- **Autodesk Revit 2020 - 2026** (any supported version)
+- **Node.js 18+** (MCP server)
+- **Autodesk Revit 2020-2026**
 
-## Quick Start (Using a Release)
+## Quick Start (Release ZIP)
 
-1. Download the ZIP for your Revit version from the [Releases](https://github.com/mcp-servers-for-revit/mcp-servers-for-revit/releases) page (e.g., `mcp-servers-for-revit-v1.0.0-Revit2025.zip`)
+1. Download a release ZIP for your Revit version from [Releases](https://github.com/mcp-servers-for-revit/mcp-servers-for-revit/releases).
+2. Extract and copy files into:
 
-2. Extract the ZIP and copy the contents to your Revit addins folder:
-   ```
-   %AppData%\Autodesk\Revit\Addins\<your Revit version>\
-   ```
-   After copying you should have:
-   ```
-   Addins/2025/
-   ├── mcp-servers-for-revit.addin
-   └── revit_mcp_plugin/
-       ├── revit-mcp-plugin.dll
-       ├── ...
-       └── Commands/
-           └── RevitMCPCommandSet/
-               ├── command.json
-               └── 2025/
-                   ├── RevitMCPCommandSet.dll
-                   └── ...
-   ```
+```text
+%AppData%\Autodesk\Revit\Addins\<your Revit version>\
+```
 
-3. Configure the MCP server in your AI client (see below)
+Expected structure:
 
-4. Start Revit - the plugin loads automatically
-5. MCP bridge behavior in Revit:
-   - The plugin starts the MCP socket server automatically right after Revit initialization, on the first safe idle cycle.
-   - The ribbon button `Revit MCP Switch` (`Open / Close mcp server`) is a toggle.
-   - Because startup is auto-open, the first click will close the server.
+```text
+Addins/2025/
+├── mcp-servers-for-revit.addin
+└── revit_mcp_plugin/
+    ├── revit-mcp-plugin.dll
+    ├── ...
+    └── Commands/
+        └── RevitMCPCommandSet/
+            ├── command.json
+            └── 2025/
+                ├── RevitMCPCommandSet.dll
+                └── ...
+```
+
+3. Configure the MCP server in your AI client.
+4. Start Revit (plugin auto-loads).
+
+Bridge runtime behavior:
+
+- Socket service auto-opens after Revit initialization on a safe idle cycle.
+- Ribbon button `Revit MCP Switch` toggles `Open / Close mcp server`.
+- Because startup auto-opens the server, the first click will close it.
 
 ## MCP Server Setup
 
-The MCP server is published as an npm package and can be run directly with `npx`.
+The MCP server is published on npm as [`mcp-server-for-revit`](https://www.npmjs.com/package/mcp-server-for-revit).
 
-**Claude Code**
+### Claude Code
+
+Windows:
 
 ```bash
 claude mcp add mcp-server-for-revit -- cmd /c npx -y mcp-server-for-revit
 ```
 
-**Claude Desktop**
+macOS/Linux:
 
-Claude Desktop → Settings → Developer → Edit Config → `claude_desktop_config.json`:
+```bash
+claude mcp add mcp-server-for-revit -- npx -y mcp-server-for-revit
+```
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json`.
+
+Windows:
 
 ```json
 {
-    "mcpServers": {
-        "mcp-server-for-revit": {
-            "command": "cmd",
-            "args": ["/c", "npx", "-y", "mcp-server-for-revit"]
-        }
+  "mcpServers": {
+    "mcp-server-for-revit": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-server-for-revit"]
     }
+  }
 }
 ```
 
-Restart Claude Desktop. When you see the hammer icon, the MCP server is connected.
+macOS/Linux:
+
+```json
+{
+  "mcpServers": {
+    "mcp-server-for-revit": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-for-revit"]
+    }
+  }
+}
+```
+
+Restart the client. If the hammer icon is visible, MCP connection is active.
 
 ![Claude Desktop connection](./assets/claude.png)
 
 ## Revit Plugin Setup
 
-If using a release ZIP, the plugin is already included. For manual installation:
+If you use release ZIP assets, plugin files are already included.
 
-1. Build the plugin from `plugin/` (see [Development](#development))
-2. Copy `mcp-servers-for-revit.addin` to `%AppData%\Autodesk\Revit\Addins\<version>\`
-3. Copy the `revit_mcp_plugin/` folder to the same addins directory
+Manual setup:
 
-Runtime behavior:
-
-- On Revit startup, the plugin automatically initializes and opens the local MCP socket server on the first safe idle cycle.
-- Use the ribbon button `Revit MCP Switch` to toggle server state at any time.
+1. Build `plugin/` (see [Development](#development)).
+2. Copy `mcp-servers-for-revit.addin` to `%AppData%\Autodesk\Revit\Addins\<version>\`.
+3. Copy `revit_mcp_plugin/` to the same addins directory.
 
 ## Command Set Setup
 
-If using a release ZIP, the command set is pre-installed inside the plugin. For manual installation:
+If you use release ZIP assets, command set files are already staged.
 
-1. Build the command set from `commandset/` (see [Development](#development))
-2. Inside the plugin's installation directory, create `Commands/RevitMCPCommandSet/<year>/`
-3. Copy the built DLLs into that folder
-4. Copy `command.json` (from repo root) into `Commands/RevitMCPCommandSet/`
+Manual setup:
 
-After building `commandset`, the output directory also contains a staged layout you can copy directly:
+1. Build `commandset/` (see [Development](#development)).
+2. Create `Commands/RevitMCPCommandSet/<year>/` under plugin install directory.
+3. Copy built commandset DLLs into `<year>/`.
+4. Copy repo-root `command.json` into `Commands/RevitMCPCommandSet/`.
+
+Staged output layout:
 
 ```text
 <commandset output>\Commands\RevitMCPCommandSet\
@@ -128,74 +159,107 @@ After building `commandset`, the output directory also contains a staged layout 
 
 ## Tool Modes
 
-Phase 1 now defaults the MCP server to `Code Mode`. In this mode, the AI-facing tool surface is intentionally reduced to:
+By default, the server starts in **Code Mode** (`REVIT_MCP_TOOLSET=code` implied).
 
-| Tool | Description |
-| ---- | ----------- |
-| `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
-| `search` | Revit API coding gap-filler that returns compact answers, snippets, and pitfalls |
+- Code Mode exposes a focused tool surface for token-efficient inspection and controlled code execution.
+- Full Mode (`REVIT_MCP_TOOLSET=full` or `REVIT_MCP_ENABLE_LEGACY_TOOLS=true`) additionally exposes legacy tools from `server/src/tools/`.
 
-This makes `execute` the preferred path for most tasks. Use `search` only when the agent is missing a Revit API detail, then continue with `execute`.
+## Supported Tools (Default Code Mode)
 
-## Supported Tools
+| Tool | Role |
+| ---- | ---- |
+| `selection_roots` | Inspection step 1: discover roots from selection or active view |
+| `object_member_groups` | Inspection step 2: get inheritance-aware member directories |
+| `expand_members` | Inspection step 3: expand only named members |
+| `navigate_object` | Inspection step 4: navigate complex value handles |
+| `execute` | Fallback/custom C# execution (`read_only` default, `modify` with explicit approval only) |
+| `get_runtime_context` | Runtime probe for bridge and execution context diagnostics |
+| `lookup_engine_query` | Runtime API/member discovery helper (especially for symbol/member uncertainty) |
+| `search` | Compact API gap-filler, used only for narrow missing details |
+| `exec` | Legacy alias of `execute` |
 
-### Default Code Mode
+## Recommended Workflow
 
-| Tool | Description |
-| ---- | ----------- |
-| `execute` | Primary Code Mode tool for running generated C# in `read_only` or `modify` mode through the Revit bridge |
-| `search` | Revit API coding gap-filler that returns compact answers, snippets, and pitfalls |
+Use this decision order:
 
-Simple queries should ideally be `0 x search + 1 x execute`.
+1. **Routine inspection**: `selection_roots -> object_member_groups -> expand_members -> navigate_object`
+2. **Custom analysis or unsupported query**: `execute` (`read_only` first)
+3. **API/member uncertainty**: `lookup_engine_query` first, then patch and retry `execute`
+4. **Last-mile API detail**: `search` once, then immediately retry `execute`
 
-More complex queries should usually finish within `1-2 x search + 1 x execute`.
+Guidance:
 
-`execute` defaults to `read_only` for inspection and analysis.
+- Simple tasks should usually finish with `0 x search + 1 x execute` or pure inspection flow.
+- `mode: "modify"` should only be used after explicit user confirmation.
 
-Use `mode: "modify"` only after the user explicitly confirms that the model should be changed.
+## RevitLookup Runtime Notes
 
-## Phase 1 Smoke Test
+`lookup_engine_query` and the inspection flow require assemblies loaded in the current Revit process.
 
-The recommended end-to-end smoke test is `execute` with a visible dialog:
+The command set attempts to auto-load:
+
+- `RevitLookup.dll`
+- `LookupEngine.dll`
+- `LookupEngine.Abstractions.dll`
+
+Common lookup locations:
+
+- `%AppData%\\Autodesk\\Revit\\Addins\\<year>\\RevitLookup\\`
+- plugin output sibling `..\\RevitLookup`
+
+If runtime diagnostics still report unavailable lookup engine, open RevitLookup once in Revit ribbon and retry.
+
+Handle lifecycle:
+
+- `objectHandle` / `valueHandle` are session-scoped and context-sensitive.
+- Placeholder handles such as `WALL_HANDLE_NEW` are intentionally invalid and return `ERR_INVALID_HANDLE`.
+- If document/selection/context changes, refresh via `selection_roots` and use new handles.
+
+Member expansion notes:
+
+- `object_member_groups` can include signature previews such as `FindInserts (Boolean, Boolean, Boolean, Boolean)`.
+- `expand_members` supports name and signature-normalized matching.
+
+## Smoke Test (Phase 1)
+
+Use `execute` with a visible dialog:
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
 return new { message = "Hello Revit" };
 ```
 
-If your client exposes the `mode` argument, use `read_only` by default. Switch to `modify` only after explicit user approval for model changes.
+Expected:
 
-Expected outcome:
-
-- The MCP server calls the plugin bridge command `exec`.
-- Revit displays a `Hello Revit` dialog.
-- The tool response contains a success payload from `execute`.
+- MCP server sends bridge command `exec` (with fallback to `execute` if needed).
+- Revit shows `Hello Revit` dialog.
+- `execute` returns a success payload.
 
 ## Testing
 
-The test project uses [Nice3point.TUnit.Revit](https://github.com/Nice3point/RevitUnit) to run integration tests against a live Revit instance. No separate addin installation is required — the framework injects into the running Revit process automatically.
+The test suite uses [Nice3point.TUnit.Revit](https://github.com/Nice3point/RevitUnit) for integration testing against a live Revit process.
 
 ### Prerequisites
 
-- **.NET 10 SDK** — required by Nice3point.Revit.Sdk 6.1.0. Install via `winget install Microsoft.DotNet.SDK.10`
-- **Autodesk Revit 2026** (or 2025) — must be installed and licensed on your machine
+- **.NET 10 SDK** (`Nice3point.Revit.Sdk 6.1.0` requirement)
+- **Revit 2026** (or 2025), installed and licensed
 
-### Running Tests
+### Run Tests
 
-1. Open Revit 2026 (or 2025) and wait for it to fully load
-2. Run the tests from the command line:
+1. Open Revit 2026 (or 2025).
+2. Run:
 
 ```bash
-# For Revit 2026
+# Revit 2026
 dotnet test -c Debug.R26 -r win-x64 tests/commandset
 
-# For Revit 2025
+# Revit 2025
 dotnet test -c Debug.R25 -r win-x64 tests/commandset
 ```
 
-> **Note:** The `-r win-x64` flag is required on ARM64 machines because the Revit API assemblies are x64-only.
+> **Note:** `-r win-x64` is required on ARM64 machines because Revit API assemblies are x64-only.
 
-Alternatively, you can use `dotnet run`:
+Alternative:
 
 ```bash
 cd tests/commandset
@@ -204,22 +268,21 @@ dotnet run -c Debug.R26
 
 ### IDE Support
 
-- **JetBrains Rider** — enable "Testing Platform support" in Settings > Build, Execution, Deployment > Unit Testing > Testing Platform
-- **Visual Studio** — tests should be discoverable through the standard Test Explorer
+- **JetBrains Rider**: enable Testing Platform support
+- **Visual Studio**: use Test Explorer
 
 ### Test Structure
 
 | Directory | Purpose |
 |-----------|---------|
 | `tests/commandset/AssemblyInfo.cs` | Global `[assembly: TestExecutor<RevitThreadExecutor>]` registration |
-| `tests/commandset/Architecture/` | Tests for level and room creation commands |
-| `tests/commandset/DataExtraction/` | Tests for model statistics, room data export, and material quantities |
-| `tests/commandset/ColorSplashTests.cs` | Tests for color override functionality |
-| `tests/commandset/TagRoomsTests.cs` | Tests for room tagging functionality |
+| `tests/commandset/Architecture/` | Level and room creation tests |
+| `tests/commandset/DataExtraction/` | Model statistics, room export, material quantity tests |
+| `tests/commandset/ColorSplashTests.cs` | Color override tests |
+| `tests/commandset/TagRoomsTests.cs` | Room tagging tests |
+| `tests/commandset/ConnectRvtLookup/` | RevitLookup inspection protocol tests |
 
 ### Writing New Tests
-
-Test classes inherit from `RevitApiTest` and use TUnit's async assertion API:
 
 ```csharp
 public class MyTests : RevitApiTest
@@ -262,69 +325,79 @@ npm install
 npm run build
 ```
 
-The server compiles TypeScript to `server/build/`. During development you can run it directly with `npx tsx server/src/index.ts`.
+Compiled output: `server/build/`
+
+Dev run:
+
+```bash
+npx tsx server/src/index.ts
+```
 
 ### Revit Plugin + Command Set
 
-Open `mcp-servers-for-revit.sln` in Visual Studio. The solution contains both the plugin and command set projects. Build configurations target Revit 2020-2026:
+Open `mcp-servers-for-revit.sln` in Visual Studio.
 
-- **Revit 2020-2024**: .NET Framework 4.8 (`Release R20` through `Release R24`)
-- **Revit 2025-2026**: .NET 8 (`Release R25`, `Release R26`)
+Build targets:
 
-Building the solution automatically assembles the complete deployable layout in `plugin/bin/AddIn <year> <config>/` - the command set is copied into the plugin's `Commands/` folder as part of the build.
+- Revit 2020-2024: .NET Framework 4.8 (`Release R20`-`Release R24`)
+- Revit 2025-2026: .NET 8 (`Release R25`, `Release R26`)
 
-`RevitMCPPlugin.csproj` now has an explicit project dependency on `RevitMCPCommandSet.csproj`, so building the plugin also builds the command set first and stages its output into the plugin add-in directory automatically.
+Build output includes deploy-ready layout in:
 
-For convenience, the command-set deployment layout is also copied into the plugin's standard output directory under `plugin/bin/<Config>/<year>/Commands/RevitMCPCommandSet/`.
+- `plugin/bin/AddIn <year> <config>/`
+
+`RevitMCPPlugin.csproj` depends on `RevitMCPCommandSet.csproj`, so command set output is staged automatically.
 
 ## Project Structure
 
-```
+```text
 mcp-servers-for-revit/
-├── mcp-servers-for-revit.sln    # Combined solution (plugin + commandset + tests)
-├── command.json     # Command set manifest
-├── server/          # MCP server (TypeScript) - tools exposed to AI clients
-├── plugin/          # Revit add-in (C#) - WebSocket bridge inside Revit
-├── commandset/      # Command implementations (C#) - Revit API operations
-├── tests/           # Integration tests (C#) - TUnit tests against live Revit
-├── assets/          # Images for documentation
-├── .github/         # CI/CD workflows, contributing guide, code of conduct
+├── mcp-servers-for-revit.sln
+├── command.json
+├── server/
+├── plugin/
+├── commandset/
+├── tests/
+├── docs/
+├── assets/
+├── .github/
+├── scripts/
 ├── LICENSE
 └── README.md
 ```
 
 ## Releasing
 
-A single `v*` tag drives the entire release. The [release workflow](.github/workflows/release.yml) automatically:
+A single `v*` tag drives the full release pipeline ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
-- Builds the Revit plugin + command set for Revit 2020-2026
-- Creates a GitHub release with `mcp-servers-for-revit-vX.Y.Z-Revit<year>.zip` assets
-- Publishes the MCP server to npm as [`mcp-server-for-revit`](https://www.npmjs.com/package/mcp-server-for-revit)
+- Build plugin + commandset for Revit 2020-2026
+- Create GitHub release ZIP assets
+- Publish npm package `mcp-server-for-revit` via trusted publishing (OIDC)
 
-To create a release:
+Release steps:
 
-1. Run the bump script (updates `server/package.json`, `server/package-lock.json`, and `plugin/Properties/AssemblyInfo.cs`, then commits and tags):
-   ```powershell
-   ./scripts/release.ps1 -Version X.Y.Z
-   ```
+1. Bump versions and tag:
 
-2. Push to trigger the workflow:
-   ```bash
-   git push origin main --tags
-   ```
+```powershell
+./scripts/release.ps1 -Version X.Y.Z
+```
+
+2. Push:
+
+```bash
+git push origin main --tags
+```
 
 > [!NOTE]
-> npm publish uses [trusted publishing](https://docs.npmjs.com/trusted-publishers/) via OIDC — no npm token is required. Provenance attestation is generated automatically.
+> `release.ps1` currently performs a hard reset of local changes before bumping. Run it only from a clean or disposable working tree.
 
 ## Acknowledgements
 
-This project is a fork of the work by the [mcp-servers-for-revit](https://github.com/mcp-servers-for-revit) team. The original repositories:
+This project builds on the original work from the [mcp-servers-for-revit](https://github.com/mcp-servers-for-revit) team:
 
-- [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) - MCP server
-- [revit-mcp-plugin](https://github.com/mcp-servers-for-revit/revit-mcp-plugin) - Revit plugin
-- [revit-mcp-commandset](https://github.com/mcp-servers-for-revit/revit-mcp-commandset) - Command set
-
-Thank you to the original authors for creating the foundation that this project builds upon.
+- [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp)
+- [revit-mcp-plugin](https://github.com/mcp-servers-for-revit/revit-mcp-plugin)
+- [revit-mcp-commandset](https://github.com/mcp-servers-for-revit/revit-mcp-commandset)
 
 ## License
 

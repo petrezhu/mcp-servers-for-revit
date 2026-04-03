@@ -62,6 +62,20 @@ public static class MemberGroupProjector
         groups = null;
 
         var provider = ConnectRvtLookupRuntime.LookupEngineMemberMetadataProvider;
+        if (provider == null || (!provider.IsAvailable && provider is RuntimeLookupEngineMemberMetadataProvider))
+        {
+            var refreshedProvider = RuntimeLookupEngineMemberMetadataProvider.Create();
+            if (refreshedProvider.IsAvailable)
+            {
+                ConnectRvtLookupRuntime.LookupEngineMemberMetadataProvider = refreshedProvider;
+                provider = refreshedProvider;
+                ConnectRvtLookupDiagnostics.Info(
+                    nameof(TryProjectWithLookupEngine),
+                    "LookupEngine 成员桥接已自动刷新并恢复可用。",
+                    ConnectRvtLookupDiagnostics.Context("instanceType", instance?.GetType().Name));
+            }
+        }
+
         if (provider == null || !provider.IsAvailable)
         {
             ConnectRvtLookupDiagnostics.Warning(

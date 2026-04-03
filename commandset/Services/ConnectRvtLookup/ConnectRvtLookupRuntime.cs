@@ -458,7 +458,9 @@ public static class ConnectRvtLookupRuntime
 
         var members = declaringType
             .GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-            .Where(member => string.Equals(member.Name, requestedMember.MemberName, StringComparison.Ordinal))
+            .Where(member =>
+                string.Equals(member.Name, requestedMember.MemberName, StringComparison.Ordinal) ||
+                string.Equals(member.Name, NormalizeRequestedMemberName(requestedMember.MemberName), StringComparison.Ordinal))
             .ToList();
 
         memberInfo = members
@@ -544,6 +546,22 @@ public static class ConnectRvtLookupRuntime
             default:
                 return false;
         }
+    }
+
+    private static string NormalizeRequestedMemberName(string requestedMemberName)
+    {
+        if (string.IsNullOrWhiteSpace(requestedMemberName))
+        {
+            return requestedMemberName;
+        }
+
+        var signatureStart = requestedMemberName.IndexOf(" (", StringComparison.Ordinal);
+        if (signatureStart <= 0)
+        {
+            return requestedMemberName;
+        }
+
+        return requestedMemberName[..signatureStart].Trim();
     }
 
     private static bool IsResolvableMember(MemberInfo memberInfo)

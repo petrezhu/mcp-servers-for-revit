@@ -6,10 +6,16 @@
 
 [English README](./README.md)
 
-`mcp-servers-for-revit` 让 Claude、Cline 以及其他兼容 MCP 的 AI 客户端能够读取、创建、修改和删除 Revit 项目中的元素。项目由三个部分组成：向 AI 暴露工具的 TypeScript MCP Server、在 Revit 内部运行并负责桥接命令的 C# 插件，以及真正执行 Revit API 操作的命令集。
+`mcp-servers-for-revit` 让兼容 MCP 的 AI 客户端（Claude、Cline 等）能够通过本地桥接来检查和操作 Revit 模型。
+
+它包含三个组成部分：
+
+- `server/`（TypeScript）：面向 AI 客户端的 MCP Server 和工具接口
+- `plugin/`（C#）：运行在 Revit 内部、承载桥接服务的插件
+- `commandset/`（C#）：由插件调用、真正执行 Revit API 逻辑的命令实现
 
 > [!NOTE]
-> 这是原始项目 [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) 的一个 fork，包含额外工具和功能增强。
+> 本仓库是 [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) 的一个 fork，扩展了工具能力并更新了工作流。
 
 ## 架构
 
@@ -27,55 +33,70 @@ flowchart LR
     CommandSet -->|executes| Revit
 ```
 
-**MCP Server**（TypeScript）负责把 AI 客户端的工具调用转换为 WebSocket 消息。**Revit Plugin**（C#）运行在 Revit 进程内，监听这些消息，并把命令分发给 **Command Set**（C#）。后者执行实际的 Revit API 操作，并把结果沿链路返回。
+MCP Server 接收 AI 客户端的工具调用，并通过 WebSocket 转发桥接命令。Revit 插件负责把这些命令分发给命令集，后者执行 Revit API 逻辑并返回结构化结果。
 
 ## 环境要求
 
 - **Node.js 18+**（MCP Server）
-- **Autodesk Revit 2020 - 2026**（任一受支持版本）
+- **Autodesk Revit 2020-2026**
 
-## 快速开始（使用 Release）
+## 快速开始（Release ZIP）
 
-1. 从 [Releases](https://github.com/mcp-servers-for-revit/mcp-servers-for-revit/releases) 页面下载对应 Revit 版本的 ZIP 包，例如 `mcp-servers-for-revit-v1.0.0-Revit2025.zip`
+1. 从 [Releases](https://github.com/mcp-servers-for-revit/mcp-servers-for-revit/releases) 下载与你的 Revit 版本对应的 ZIP 包。
+2. 解压后，将文件复制到：
 
-2. 解压后，将内容复制到 Revit Addins 目录：
+```text
+%AppData%\Autodesk\Revit\Addins\<你的 Revit 版本>\
+```
 
-   ```text
-   %AppData%\Autodesk\Revit\Addins\<你的 Revit 版本>\
-   ```
+期望目录结构：
 
-   复制完成后目录应类似于：
+```text
+Addins/2025/
+├── mcp-servers-for-revit.addin
+└── revit_mcp_plugin/
+    ├── revit-mcp-plugin.dll
+    ├── ...
+    └── Commands/
+        └── RevitMCPCommandSet/
+            ├── command.json
+            └── 2025/
+                ├── RevitMCPCommandSet.dll
+                └── ...
+```
 
-   ```text
-   Addins/2025/
-   ├── mcp-servers-for-revit.addin
-   └── revit_mcp_plugin/
-       ├── revit-mcp-plugin.dll
-       ├── ...
-       └── Commands/
-           └── RevitMCPCommandSet/
-               ├── command.json
-               └── 2025/
-                   ├── RevitMCPCommandSet.dll
-                   └── ...
-   ```
+3. 在你的 AI 客户端中配置 MCP Server。
+4. 启动 Revit（插件会自动加载）。
 
-3. 在你的 AI 客户端中配置 MCP Server
-4. 启动 Revit，插件会自动加载
+桥接运行时行为：
+
+- Revit 初始化完成后，Socket 服务会在安全的空闲周期自动打开。
+- Ribbon 按钮 `Revit MCP Switch` 用于切换 `Open / Close mcp server`。
+- 由于启动时默认自动打开服务，第一次点击按钮会关闭服务。
 
 ## MCP Server 配置
 
-MCP Server 已发布为 npm 包，可以直接通过 `npx` 运行。
+MCP Server 已发布到 npm：[`mcp-server-for-revit`](https://www.npmjs.com/package/mcp-server-for-revit)。
 
-**Claude Code**
+### Claude Code
+
+Windows：
 
 ```bash
 claude mcp add mcp-server-for-revit -- cmd /c npx -y mcp-server-for-revit
 ```
 
-**Claude Desktop**
+macOS/Linux：
 
-Claude Desktop -> Settings -> Developer -> Edit Config -> `claude_desktop_config.json`：
+```bash
+claude mcp add mcp-server-for-revit -- npx -y mcp-server-for-revit
+```
+
+### Claude Desktop
+
+编辑 `claude_desktop_config.json`。
+
+Windows：
 
 ```json
 {
@@ -88,28 +109,45 @@ Claude Desktop -> Settings -> Developer -> Edit Config -> `claude_desktop_config
 }
 ```
 
-重启 Claude Desktop。看到锤子图标后，表示 MCP Server 已连接。
+macOS/Linux：
+
+```json
+{
+  "mcpServers": {
+    "mcp-server-for-revit": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-for-revit"]
+    }
+  }
+}
+```
+
+重启客户端。如果出现锤子图标，说明 MCP 已连接成功。
 
 ![Claude Desktop connection](./assets/claude.png)
 
-## Revit Plugin 安装
+## Revit 插件安装
 
-如果使用 release ZIP，插件已包含在内。手动安装时：
+如果你使用 release ZIP，插件文件已经包含在内。
 
-1. 构建 `plugin/` 项目，见 [开发](#开发)
-2. 将 `mcp-servers-for-revit.addin` 复制到 `%AppData%\Autodesk\Revit\Addins\<version>\`
-3. 将 `revit_mcp_plugin/` 整个目录复制到同一 Addins 目录
+手动安装：
+
+1. 构建 `plugin/`（见 [开发](#开发)）。
+2. 将 `mcp-servers-for-revit.addin` 复制到 `%AppData%\Autodesk\Revit\Addins\<version>\`。
+3. 将 `revit_mcp_plugin/` 复制到同一个 Addins 目录。
 
 ## Command Set 安装
 
-如果使用 release ZIP，command set 已预装在插件目录中。手动安装时：
+如果你使用 release ZIP，command set 文件也已经预置完成。
 
-1. 构建 `commandset/` 项目，见 [开发](#开发)
-2. 在插件安装目录下创建 `Commands/RevitMCPCommandSet/<year>/`
-3. 将构建出的 DLL 复制到该目录
-4. 将仓库根目录的 `command.json` 复制到 `Commands/RevitMCPCommandSet/`
+手动安装：
 
-构建 `commandset` 后，输出目录还会生成一份可直接复制的完整布局：
+1. 构建 `commandset/`（见 [开发](#开发)）。
+2. 在插件安装目录下创建 `Commands/RevitMCPCommandSet/<year>/`。
+3. 将构建得到的 commandset DLL 复制到 `<year>/`。
+4. 将仓库根目录的 `command.json` 复制到 `Commands/RevitMCPCommandSet/`。
+
+预置输出结构：
 
 ```text
 <commandset 输出目录>\Commands\RevitMCPCommandSet\
@@ -121,62 +159,95 @@ Claude Desktop -> Settings -> Developer -> Edit Config -> `claude_desktop_config
 
 ## 工具模式
 
-Phase 1 默认让 MCP Server 以 `Code Mode` 启动。在该模式下，面向 AI 的工具面被收敛为：
+默认情况下，服务端以 **Code Mode** 启动（隐含 `REVIT_MCP_TOOLSET=code`）。
 
-| 工具 | 说明 |
+- Code Mode 暴露一组更聚焦的工具接口，用于更省 token 的检查流程和受控代码执行。
+- Full Mode（`REVIT_MCP_TOOLSET=full` 或 `REVIT_MCP_ENABLE_LEGACY_TOOLS=true`）会额外暴露 `server/src/tools/` 中的 legacy 工具。
+
+## 支持的工具（默认 Code Mode）
+
+| 工具 | 作用 |
 | ---- | ---- |
-| `execute` | Code Mode 主工具，用于通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
-| `search` | Revit API 编码补丁工具，返回紧凑答案、最小片段和 pitfalls |
+| `selection_roots` | 检查流程第 1 步：从当前选择集或活动视图发现根对象 |
+| `object_member_groups` | 检查流程第 2 步：获取带继承层次的成员目录 |
+| `expand_members` | 检查流程第 3 步：只展开被点名的成员 |
+| `navigate_object` | 检查流程第 4 步：继续导航复杂值句柄 |
+| `execute` | 后备/自定义 C# 执行工具（默认 `read_only`，仅在明确批准后使用 `modify`） |
+| `get_runtime_context` | 运行时探针，用于桥接和执行上下文诊断 |
+| `lookup_engine_query` | 运行时 API/成员发现工具，尤其适合符号名或成员名不确定时 |
+| `search` | 紧凑型 API 补缺工具，仅用于补齐某个很窄的缺失细节 |
+| `exec` | `execute` 的 legacy 别名 |
 
-这意味着大多数任务应优先直接走 `execute`。只有在缺少某个 Revit API 细节时，才调用 `search`，随后立刻回到 `execute`。
+## 推荐工作流
 
-## 支持的工具
+建议按这个顺序决策：
 
-### 默认 Code Mode
+1. **常规检查**：`selection_roots -> object_member_groups -> expand_members -> navigate_object`
+2. **自定义分析或当前协议不支持的查询**：`execute`（先用 `read_only`）
+3. **API/成员名不确定**：先用 `lookup_engine_query`，再修正并重试 `execute`
+4. **最后一公里的 API 细节缺口**：调用一次 `search`，然后立刻回到 `execute`
 
-| 工具 | 说明 |
-| ---- | ---- |
-| `execute` | Code Mode 主工具，用于通过 Revit 桥接以 `read_only` 或 `modify` 模式执行生成的 C# 代码 |
-| `search` | Revit API 编码补丁工具，返回紧凑答案、最小片段和 pitfalls |
+补充说明：
 
-简单查询的理想调用路径应是 `0 次 search + 1 次 execute`。
+- 简单任务通常应在 `0 次 search + 1 次 execute` 或纯 inspection flow 内完成。
+- 只有在用户明确确认后，才应使用 `mode: "modify"`。
 
-中等或较复杂查询通常也应控制在 `1~2 次 search + 1 次 execute`。
+## RevitLookup 运行时说明
 
-`execute` 默认使用 `read_only`，适合查询、检查和分析。
+`lookup_engine_query` 和 inspection flow 依赖当前 Revit 进程中已加载相关程序集。
 
-只有在用户明确确认要修改模型时，才应使用 `mode: "modify"`。
+命令集会尝试自动加载：
 
-## Phase 1 冒烟测试
+- `RevitLookup.dll`
+- `LookupEngine.dll`
+- `LookupEngine.Abstractions.dll`
 
-推荐的端到端冒烟测试是通过 `execute` 弹出一个可见对话框：
+常见查找位置：
+
+- `%AppData%\\Autodesk\\Revit\\Addins\\<year>\\RevitLookup\\`
+- 插件输出目录同级的 `..\\RevitLookup`
+
+如果运行时诊断仍然报告 lookup engine 不可用，请先在 Revit Ribbon 中手动打开一次 RevitLookup，再重试。
+
+句柄生命周期：
+
+- `objectHandle` 和 `valueHandle` 只在当前会话内有效，并且依赖当前上下文。
+- 像 `WALL_HANDLE_NEW` 这样的占位句柄是故意无效的，会返回 `ERR_INVALID_HANDLE`。
+- 如果文档、选择集或上下文发生变化，请重新调用 `selection_roots` 获取新句柄。
+
+成员展开说明：
+
+- `object_member_groups` 可能包含带签名预览的成员名，例如 `FindInserts (Boolean, Boolean, Boolean, Boolean)`。
+- `expand_members` 支持按成员名和标准化后的签名形式进行匹配。
+
+## 冒烟测试（Phase 1）
+
+使用 `execute` 弹出一个可见对话框：
 
 ```csharp
 TaskDialog.Show("Revit MCP", "Hello Revit");
 return new { message = "Hello Revit" };
 ```
 
-如果你的客户端暴露了 `mode` 参数，默认应使用 `read_only`。只有在用户明确批准修改模型后，才切换为 `modify`。
-
 预期结果：
 
-- MCP Server 调用 plugin 侧桥接命令 `exec`
-- Revit 弹出 `Hello Revit` 对话框
-- `execute` 工具响应返回成功结果
+- MCP Server 发送桥接命令 `exec`（必要时回退到 `execute`）。
+- Revit 弹出 `Hello Revit` 对话框。
+- `execute` 返回成功 payload。
 
 ## 测试
 
-测试项目使用 [Nice3point.TUnit.Revit](https://github.com/Nice3point/RevitUnit) 对真实 Revit 实例运行集成测试。不需要额外安装测试 addin，框架会自动注入到运行中的 Revit 进程。
+测试套件使用 [Nice3point.TUnit.Revit](https://github.com/Nice3point/RevitUnit) 对真实运行中的 Revit 进程执行集成测试。
 
 ### 前置条件
 
-- **.NET 10 SDK**：`Nice3point.Revit.Sdk 6.1.0` 需要，安装命令为 `winget install Microsoft.DotNet.SDK.10`
-- **Autodesk Revit 2026**（或 2025）：需要已安装并可正常授权
+- **.NET 10 SDK**（`Nice3point.Revit.Sdk 6.1.0` 的要求）
+- **Revit 2026**（或 2025），并已正确安装和授权
 
 ### 运行测试
 
-1. 启动 Revit 2026（或 2025）并等待完全加载
-2. 在命令行运行：
+1. 打开 Revit 2026（或 2025）。
+2. 运行：
 
 ```bash
 # Revit 2026
@@ -186,9 +257,9 @@ dotnet test -c Debug.R26 -r win-x64 tests/commandset
 dotnet test -c Debug.R25 -r win-x64 tests/commandset
 ```
 
-> **Note:** 在 ARM64 机器上需要 `-r win-x64`，因为 Revit API 程序集仅提供 x64 版本。
+> **Note:** 在 ARM64 机器上必须使用 `-r win-x64`，因为 Revit API 程序集只提供 x64 版本。
 
-也可以使用 `dotnet run`：
+可选方式：
 
 ```bash
 cd tests/commandset
@@ -197,22 +268,21 @@ dotnet run -c Debug.R26
 
 ### IDE 支持
 
-- **JetBrains Rider**：在 `Settings > Build, Execution, Deployment > Unit Testing > Testing Platform` 中启用 `Testing Platform support`
-- **Visual Studio**：测试通常可通过标准的 Test Explorer 发现
+- **JetBrains Rider**：启用 Testing Platform support
+- **Visual Studio**：使用 Test Explorer
 
 ### 测试结构
 
 | 目录 | 用途 |
-| ---- | ---- |
+|-----------|---------|
 | `tests/commandset/AssemblyInfo.cs` | 全局 `[assembly: TestExecutor<RevitThreadExecutor>]` 注册 |
-| `tests/commandset/Architecture/` | 创建楼层和房间相关测试 |
-| `tests/commandset/DataExtraction/` | 模型统计、房间导出、材料统计测试 |
-| `tests/commandset/ColorSplashTests.cs` | 颜色覆盖相关测试 |
-| `tests/commandset/TagRoomsTests.cs` | 房间标注相关测试 |
+| `tests/commandset/Architecture/` | 楼层和房间创建测试 |
+| `tests/commandset/DataExtraction/` | 模型统计、房间导出、材料数量测试 |
+| `tests/commandset/ColorSplashTests.cs` | 颜色覆盖测试 |
+| `tests/commandset/TagRoomsTests.cs` | 房间标注测试 |
+| `tests/commandset/ConnectRvtLookup/` | RevitLookup 检查协议测试 |
 
 ### 编写新测试
-
-测试类继承自 `RevitApiTest`，并使用 TUnit 的异步断言 API：
 
 ```csharp
 public class MyTests : RevitApiTest
@@ -255,71 +325,79 @@ npm install
 npm run build
 ```
 
-Server 会将 TypeScript 编译到 `server/build/`。开发过程中也可以直接运行 `npx tsx server/src/index.ts`。
+编译输出目录：`server/build/`
 
-### Revit Plugin + Command Set
+开发时可直接运行：
 
-使用 Visual Studio 打开 `mcp-servers-for-revit.sln`。该 solution 同时包含 plugin 和 commandset 项目。构建配置覆盖 Revit 2020-2026：
+```bash
+npx tsx server/src/index.ts
+```
 
-- **Revit 2020-2024**：.NET Framework 4.8（`Release R20` 到 `Release R24`）
-- **Revit 2025-2026**：.NET 8（`Release R25`、`Release R26`）
+### Revit 插件 + Command Set
 
-构建 solution 后，会在 `plugin/bin/AddIn <year> <config>/` 下自动生成完整可部署布局；其中 command set 会自动复制到 plugin 的 `Commands/` 目录中。
+使用 Visual Studio 打开 `mcp-servers-for-revit.sln`。
 
-`RevitMCPPlugin.csproj` 现在显式依赖 `RevitMCPCommandSet.csproj`，因此直接构建 plugin 时，也会先构建 commandset，并把其输出自动整理到 plugin 的 add-in 目录。
+构建目标：
 
-为了便于检查，command set 的部署布局也会同步复制到 plugin 的常规输出目录：`plugin/bin/<Config>/<year>/Commands/RevitMCPCommandSet/`。
+- Revit 2020-2024：.NET Framework 4.8（`Release R20`-`Release R24`）
+- Revit 2025-2026：.NET 8（`Release R25`、`Release R26`）
+
+构建输出会自动生成可部署目录：
+
+- `plugin/bin/AddIn <year> <config>/`
+
+`RevitMCPPlugin.csproj` 依赖 `RevitMCPCommandSet.csproj`，因此构建插件时会自动先构建 command set 并完成产物整理。
 
 ## 项目结构
 
 ```text
 mcp-servers-for-revit/
-├── mcp-servers-for-revit.sln    # 组合 solution（plugin + commandset + tests）
-├── command.json                 # Command set 清单
-├── server/                      # MCP server（TypeScript），对 AI 暴露工具
-├── plugin/                      # Revit add-in（C#），Revit 内部的 WebSocket 桥
-├── commandset/                  # 命令实现（C#），实际 Revit API 操作
-├── tests/                       # 集成测试（C#），针对真实 Revit 的 TUnit 测试
-├── assets/                      # 文档图片资源
-├── .github/                     # CI/CD 工作流、贡献指南、行为准则
+├── mcp-servers-for-revit.sln
+├── command.json
+├── server/
+├── plugin/
+├── commandset/
+├── tests/
+├── docs/
+├── assets/
+├── .github/
+├── scripts/
 ├── LICENSE
 └── README.md
 ```
 
 ## 发布
 
-单个 `v*` tag 会驱动整套发布流程。[release workflow](.github/workflows/release.yml) 会自动：
+单个 `v*` tag 会驱动完整发布流程（[` .github/workflows/release.yml`](.github/workflows/release.yml)）：
 
-- 为 Revit 2020-2026 构建 plugin + command set
-- 创建 GitHub Release，并上传 `mcp-servers-for-revit-vX.Y.Z-Revit<year>.zip`
-- 将 MCP Server 发布到 npm：[`mcp-server-for-revit`](https://www.npmjs.com/package/mcp-server-for-revit)
+- 构建 Revit 2020-2026 的 plugin + commandset
+- 创建 GitHub Release ZIP 资产
+- 通过 trusted publishing（OIDC）发布 npm 包 `mcp-server-for-revit`
 
-创建 release 的步骤：
+发布步骤：
 
-1. 运行版本脚本，它会更新 `server/package.json`、`server/package-lock.json` 和 `plugin/Properties/AssemblyInfo.cs`，然后提交并打 tag：
+1. 升级版本并打 tag：
 
-   ```powershell
-   ./scripts/release.ps1 -Version X.Y.Z
-   ```
+```powershell
+./scripts/release.ps1 -Version X.Y.Z
+```
 
-2. 推送代码和 tag，触发工作流：
+2. 推送：
 
-   ```bash
-   git push origin main --tags
-   ```
+```bash
+git push origin main --tags
+```
 
 > [!NOTE]
-> npm 发布通过 OIDC 的 [trusted publishing](https://docs.npmjs.com/trusted-publishers/) 完成，不需要 npm token，供应链 provenance 证明会自动生成。
+> `release.ps1` 当前会在版本提升前对本地改动执行 hard reset。只应在工作区干净或可丢弃的树上运行。
 
 ## 致谢
 
-本项目 fork 自 [mcp-servers-for-revit](https://github.com/mcp-servers-for-revit) 团队的工作，原始仓库包括：
+本项目建立在 [mcp-servers-for-revit](https://github.com/mcp-servers-for-revit) 团队的原始工作之上：
 
-- [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) - MCP Server
-- [revit-mcp-plugin](https://github.com/mcp-servers-for-revit/revit-mcp-plugin) - Revit 插件
-- [revit-mcp-commandset](https://github.com/mcp-servers-for-revit/revit-mcp-commandset) - 命令集
-
-感谢原作者提供了这个项目的基础。
+- [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp)
+- [revit-mcp-plugin](https://github.com/mcp-servers-for-revit/revit-mcp-plugin)
+- [revit-mcp-commandset](https://github.com/mcp-servers-for-revit/revit-mcp-commandset)
 
 ## 许可证
 
